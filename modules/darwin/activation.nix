@@ -1,0 +1,24 @@
+{ config, lib, ... }:
+let
+  cfg = config.dotfiles;
+  isDarwin = lib.hasSuffix "darwin" cfg.host.platform;
+in
+{
+  config = lib.mkIf isDarwin {
+    system.activationScripts.postActivation.text = lib.mkAfter ''
+      ${lib.optionalString cfg.features.touchIdSudo.enable ''
+        pam_sudo_file="/etc/pam.d/sudo"
+        pam_touch_id_line="auth       sufficient     pam_tid.so"
+
+        if ! /usr/bin/grep -Fqx "$pam_touch_id_line" "$pam_sudo_file"; then
+          /usr/bin/sed -i.bak "1s|^|$pam_touch_id_line\\
+      |" "$pam_sudo_file"
+        fi
+      ''}
+
+      ${lib.optionalString cfg.features.capsToCtrl.enable ''
+        /usr/bin/hidutil property --set '{"UserKeyMapping":[{"HIDKeyboardModifierMappingSrc":0x700000039,"HIDKeyboardModifierMappingDst":0x7000000e0}]}' >/dev/null 2>&1 || true
+      ''}
+    '';
+  };
+}
