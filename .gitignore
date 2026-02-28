@@ -1,0 +1,12 @@
+.DS_Store
+result
+result-*
+*.hm-backup
+.direnv
+modules/local/identity.nix
+secrets/keys/
+secrets/**/*.bak
+secrets/**/*.dec
+secrets/**/*.decrypted
+secrets/**/*.plaintext
+secrets/**/*.tmp
