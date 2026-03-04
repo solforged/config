@@ -1,0 +1,868 @@
+#!/usr/bin/env sh
+
+set -eu
+
+resolve_script_path() {
+  script_path="$1"
+
+  case "$script_path" in
+    */*)
+      ;;
+    *)
+      script_path="$(command -v -- "$script_path" 2>/dev/null || true)"
+      [ -n "$script_path" ] || die "could not resolve script path: $1"
+      ;;
+  esac
+
+  while [ -L "$script_path" ]; do
+    link_target="$(readlink "$script_path")" || die "could not read symlink: $script_path"
+
+    case "$link_target" in
+      /*)
+        script_path="$link_target"
+        ;;
+      *)
+        script_dir=$(
+          CDPATH= cd -- "$(dirname -- "$script_path")" && pwd -P
+        )
+        script_path="$script_dir/$link_target"
+        ;;
+    esac
+  done
+
+  script_dir=$(
+    CDPATH= cd -- "$(dirname -- "$script_path")" && pwd -P
+  )
+  printf '%s/%s\n' "$script_dir" "$(basename -- "$script_path")"
+}
+
+is_repo_root() {
+  candidate="$1"
+  [ -f "$candidate/flake.nix" ] && [ -f "$candidate/bin/rig" ] && [ -d "$candidate/hosts" ]
+}
+
+find_repo_root() {
+  if [ -n "${RIG_REPO_ROOT:-}" ]; then
+    if is_repo_root "$RIG_REPO_ROOT"; then
+      printf '%s\n' "$RIG_REPO_ROOT"
+      return 0
+    fi
+    die "RIG_REPO_ROOT is not a rig checkout: $RIG_REPO_ROOT"
+  fi
+
+  candidate=$(
+    CDPATH= cd -- "$(dirname -- "$0")/.." 2>/dev/null && pwd -P
+  ) || candidate=""
+  if [ -n "$candidate" ] && is_repo_root "$candidate"; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+
+  candidate=$(
+    CDPATH= cd -- "$(dirname -- "$(resolve_script_path "$0")")/.." 2>/dev/null && pwd -P
+  ) || candidate=""
+  if [ -n "$candidate" ] && is_repo_root "$candidate"; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+
+  candidate="${XDG_DATA_HOME:-$HOME/.local/share}/dotfiles"
+  if is_repo_root "$candidate"; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+
+  candidate="$PWD"
+  while [ -n "$candidate" ] && [ "$candidate" != "/" ]; do
+    if is_repo_root "$candidate"; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+    parent="$(dirname -- "$candidate")"
+    [ "$parent" = "$candidate" ] && break
+    candidate="$parent"
+  done
+
+  die "could not determine dotfiles repo root; set RIG_REPO_ROOT"
+}
+
+repo_root="$(find_repo_root)"
+
+usage() {
+  cat <<'EOF'
+Usage: rig <command> [args]
+
+Commands:
+  bootstrap [host]         First-run decrypt, build, and activate for a host
+  build [host]             Build the host system closure
+  switch [host]            Build as the current user, then activate the host
+  check                    Run flake checks
+  fmt                      Format the repository with the flake formatter
+  update                   Update flake inputs
+  update-switch [host]     Update inputs, then build and activate the host
+  host [host]              Print the detected default host
+  hosts                    List known hosts
+  secrets <subcommand>     Manage age-encrypted repo secrets
+  install-hooks            Configure git to use the tracked pre-commit hook
+  help                     Show this help
+
+Secrets subcommands:
+  decrypt [host]           Decrypt shared and host-specific secrets into XDG state
+  edit <path>              Edit a secrets/* file in plaintext, then re-encrypt it
+  import <src> <path>      Encrypt an existing plaintext file into secrets/*
+  init-host [host]         Create or update the host recipient file from your age key
+  recipient [host]         Print the first configured recipient for a host
+  rekey [path]             Re-encrypt one secret or all secrets with current recipients
+  scan                     Scan tracked files for likely plaintext secrets
+
+Environment:
+  AGE_IDENTITIES_FILE      Override the age identity file used for decryption
+  DOTFILES_SECRETS_DIR     Override the runtime decrypt directory
+  PROTON_PASS_AGE_IDENTITY_REF  Override the Proton Pass reference used to restore keys.txt
+  RIG_HOST                 Override auto-detected host slug
+
+Examples:
+  rig build
+  rig bootstrap sigil
+  rig switch
+  rig fmt
+  rig update-switch
+  rig build sigil
+  RIG_HOST=sigil rig switch
+  rig secrets decrypt
+  rig secrets edit shared/git/config.inc
+  rig secrets init-host sigil
+  rig secrets import ~/.ssh/sigil hosts/sigil/ssh/sigil
+  PROTON_PASS_AGE_IDENTITY_REF=pass://Personal/age-identity/note rig bootstrap sigil
+EOF
+}
+
+die() {
+  printf '%s\n' "error: $*" >&2
+  exit 1
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
+}
+
+nix_cmd() {
+  command nix --log-format raw "$@"
+}
+
+ensure_not_root() {
+  if [ "$(id -u)" -eq 0 ]; then
+    die "run rig as your normal user; it will invoke sudo only for activation"
+  fi
+}
+
+list_hosts() {
+  if [ -d "$repo_root/hosts/darwin" ]; then
+    for path in "$repo_root"/hosts/darwin/*; do
+      [ -f "$path/default.nix" ] || continue
+      basename "$path"
+    done
+  fi
+
+  if [ -d "$repo_root/hosts/nixos" ]; then
+    for path in "$repo_root"/hosts/nixos/*; do
+      [ -f "$path/default.nix" ] || continue
+      basename "$path"
+    done
+  fi
+}
+
+single_host_if_any() {
+  set -- $(list_hosts)
+  if [ "$#" -eq 1 ]; then
+    printf '%s\n' "$1"
+  fi
+}
+
+detect_host() {
+  if [ -n "${RIG_HOST:-}" ]; then
+    printf '%s\n' "$RIG_HOST"
+    return 0
+  fi
+
+  if command -v scutil >/dev/null 2>&1; then
+    host_name="$(scutil --get LocalHostName 2>/dev/null || true)"
+    if [ -n "$host_name" ] && host_exists "$host_name"; then
+      printf '%s\n' "$host_name"
+      return 0
+    fi
+  fi
+
+  host_name="$(hostname -s 2>/dev/null || true)"
+  if [ -n "$host_name" ] && host_exists "$host_name"; then
+    printf '%s\n' "$host_name"
+    return 0
+  fi
+
+  host_name="$(single_host_if_any || true)"
+  if [ -n "$host_name" ]; then
+    printf '%s\n' "$host_name"
+    return 0
+  fi
+
+  die "could not determine a host; pass one explicitly or set RIG_HOST"
+}
+
+host_exists() {
+  host="$1"
+  [ -f "$repo_root/hosts/darwin/$host/default.nix" ] || [ -f "$repo_root/hosts/nixos/$host/default.nix" ]
+}
+
+host_kind() {
+  host="$1"
+
+  if [ -f "$repo_root/hosts/darwin/$host/default.nix" ]; then
+    printf '%s\n' darwin
+    return 0
+  fi
+
+  if [ -f "$repo_root/hosts/nixos/$host/default.nix" ]; then
+    printf '%s\n' nixos
+    return 0
+  fi
+
+  die "unknown host: $host"
+}
+
+host_profile_file() {
+  host="$1"
+
+  if [ -f "$repo_root/hosts/darwin/$host/default.nix" ]; then
+    printf '%s\n' "$repo_root/hosts/darwin/$host/default.nix"
+    return 0
+  fi
+
+  if [ -f "$repo_root/hosts/nixos/$host/default.nix" ]; then
+    printf '%s\n' "$repo_root/hosts/nixos/$host/default.nix"
+    return 0
+  fi
+
+  die "unknown host: $host"
+}
+
+host_has_profile() {
+  host="$1"
+  profile="$2"
+  profile_file="$(host_profile_file "$host")"
+  grep -Eq "^[[:space:]]*\"$profile\"[[:space:]]*$" "$profile_file"
+}
+
+resolve_host_arg() {
+  if [ "$#" -ge 1 ] && [ -n "$1" ]; then
+    printf '%s\n' "$1"
+  else
+    detect_host
+  fi
+}
+
+secret_state_dir() {
+  printf '%s\n' "${DOTFILES_SECRETS_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles/secrets}"
+}
+
+secret_tree_has_entries() {
+  [ -d "$repo_root/secrets" ] || return 1
+  find "$repo_root/secrets" -type f -name '*.age' -print -quit | grep -q .
+}
+
+ensure_local_bin_in_path() {
+  PATH="$HOME/.local/bin:$PATH"
+  export PATH
+}
+
+require_age() {
+  require_command age
+}
+
+require_age_keygen() {
+  require_command age-keygen
+}
+
+age_identity_file() {
+  printf '%s\n' "${AGE_IDENTITIES_FILE:-$HOME/.config/age/keys.txt}"
+}
+
+age_identity_dir() {
+  dirname "$(age_identity_file)"
+}
+
+proton_pass_age_identity_ref() {
+  printf '%s\n' "${PROTON_PASS_AGE_IDENTITY_REF:-pass://Personal/age-identity/note}"
+}
+
+install_pass_cli() {
+  ensure_local_bin_in_path
+
+  if command -v pass-cli >/dev/null 2>&1; then
+    return 0
+  fi
+
+  require_command nix
+  mkdir -p "$HOME/.local/bin"
+
+  printf '%s\n' "installing Proton Pass CLI to $HOME/.local/bin" >&2
+  PROTON_PASS_CLI_INSTALL_DIR="$HOME/.local/bin" \
+    nix_cmd shell nixpkgs#curl nixpkgs#jq --command sh -c \
+      'curl -fsSL https://proton.me/download/pass-cli/install.sh | bash'
+
+  command -v pass-cli >/dev/null 2>&1 || die "failed to install pass-cli"
+}
+
+bootstrap_age_identity_from_proton_pass() {
+  identity_file="$(age_identity_file)"
+  ref="$(proton_pass_age_identity_ref)"
+  temp_file="$(mktemp "${TMPDIR:-/tmp}/rig-age-identity.XXXXXX")"
+
+  cleanup_proton_temp() {
+    rm -f -- "$temp_file"
+  }
+
+  trap cleanup_proton_temp EXIT HUP INT TERM
+
+  install_pass_cli
+
+  if ! pass-cli info >/dev/null 2>&1; then
+    printf '%s\n' "logging into Proton Pass to restore $(basename "$identity_file")" >&2
+    pass-cli login
+  fi
+
+  pass-cli item view "$ref" >"$temp_file"
+  [ -s "$temp_file" ] || die "Proton Pass returned an empty value for $ref"
+
+  mv "$temp_file" "$identity_file"
+  chmod 600 "$identity_file"
+  trap - EXIT HUP INT TERM
+  printf '%s\n' "restored age identity from Proton Pass: $ref" >&2
+}
+
+ensure_age_identity_dir() {
+  identity_dir="$(age_identity_dir)"
+  mkdir -p "$identity_dir"
+  chmod 700 "$identity_dir"
+}
+
+require_age_identity() {
+  ensure_age_identity_dir
+  identity_file="$(age_identity_file)"
+  if [ ! -f "$identity_file" ]; then
+    bootstrap_age_identity_from_proton_pass
+  fi
+  chmod 600 "$identity_file"
+  printf '%s\n' "$identity_file"
+}
+
+age_decrypt_file() {
+  encrypted_path="$1"
+  plaintext_path="$2"
+  identity_file="$(require_age_identity)"
+
+  age --decrypt -i "$identity_file" -o "$plaintext_path" "$encrypted_path"
+}
+
+local_age_recipient() {
+  identity_file="$(require_age_identity)"
+  require_age_keygen
+  age-keygen -y "$identity_file"
+}
+
+reset_secret_state_dir() {
+  state_dir="$1"
+
+  case "$state_dir" in
+    */dotfiles/secrets)
+      ;;
+    *)
+      die "refusing to clear unexpected secret state dir: $state_dir"
+      ;;
+  esac
+
+  rm -rf -- "$state_dir"
+  mkdir -p "$state_dir"
+  chmod 700 "$state_dir"
+}
+
+decrypt_secret_tree() {
+  source_dir="$1"
+  state_dir="$2"
+
+  [ -d "$source_dir" ] || return 0
+
+  find "$source_dir" -type f -name '*.age' | sort | while IFS= read -r encrypted; do
+    relative_path="${encrypted#$source_dir/}"
+    target_path="$state_dir/${relative_path%.age}"
+
+    mkdir -p "$(dirname "$target_path")"
+    age_decrypt_file "$encrypted" "$target_path"
+    chmod 600 "$target_path"
+  done
+}
+
+normalize_secret_path() {
+  secret_path="$1"
+
+  case "$secret_path" in
+    "$repo_root"/secrets/*)
+      secret_path="${secret_path#"$repo_root"/secrets/}"
+      ;;
+    secrets/*)
+      secret_path="${secret_path#secrets/}"
+      ;;
+  esac
+
+  case "$secret_path" in
+    ""|/*|../*|*/../*|*/..)
+      die "secret path must stay under secrets/: $1"
+      ;;
+  esac
+
+  case "$secret_path" in
+    *.age)
+      ;;
+    *)
+      secret_path="$secret_path.age"
+      ;;
+  esac
+
+  printf '%s\n' "$secret_path"
+}
+
+secret_abs_path() {
+  printf '%s\n' "$repo_root/secrets/$(normalize_secret_path "$1")"
+}
+
+find_recipients_file() {
+  target_path="$1"
+  search_dir="$(dirname "$target_path")"
+
+  while :; do
+    candidate="$search_dir/.age-recipients"
+    if [ -f "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+
+    if [ "$search_dir" = "$repo_root/secrets" ]; then
+      break
+    fi
+
+    parent_dir="$(dirname "$search_dir")"
+    if [ "$parent_dir" = "$search_dir" ]; then
+      break
+    fi
+    search_dir="$parent_dir"
+  done
+
+  die "no .age-recipients found for $(normalize_secret_path "$target_path")"
+}
+
+encrypt_secret_file() {
+  plaintext_path="$1"
+  encrypted_path="$2"
+  recipients_file="$(find_recipients_file "$encrypted_path")"
+
+  set --
+  while IFS= read -r recipient || [ -n "$recipient" ]; do
+    case "$recipient" in
+      ""|\#*)
+        continue
+        ;;
+    esac
+    set -- "$@" -r "$recipient"
+  done < "$recipients_file"
+
+  [ "$#" -gt 0 ] || die "no age recipients found in $recipients_file"
+
+  mkdir -p "$(dirname "$encrypted_path")"
+  age --encrypt "$@" -o "$encrypted_path" "$plaintext_path"
+}
+
+open_secret_in_editor() {
+  plaintext_path="$1"
+  editor_cmd="${VISUAL:-${EDITOR:-vi}}"
+  sh -c "$editor_cmd \"\$1\"" sh "$plaintext_path"
+}
+
+host_recipients_path() {
+  host="$(resolve_host_arg "$@")"
+  printf '%s\n' "$repo_root/secrets/hosts/$host/.age-recipients"
+}
+
+first_recipient_in_file() {
+  recipients_file="$1"
+  grep -Ev '^[[:space:]]*($|#)' "$recipients_file" | head -n 1
+}
+
+do_secrets_decrypt() {
+  host="$(resolve_host_arg "$@")"
+  state_dir="$(secret_state_dir)"
+
+  ensure_not_root
+  require_age
+
+  [ -d "$repo_root/secrets" ] || die "no secrets/ directory found"
+
+  reset_secret_state_dir "$state_dir"
+  decrypt_secret_tree "$repo_root/secrets/shared" "$state_dir"
+
+  if host_has_profile "$host" work; then
+    decrypt_secret_tree "$repo_root/secrets/work" "$state_dir"
+  fi
+
+  decrypt_secret_tree "$repo_root/secrets/hosts/$host" "$state_dir"
+  printf '%s\n' "decrypted secrets to $state_dir"
+}
+
+do_secrets_edit() {
+  [ "$#" -ge 1 ] || die "usage: rig secrets edit <path>"
+
+  target_path="$(secret_abs_path "$1")"
+  plaintext_path="$(mktemp "${TMPDIR:-/tmp}/rig-secret.XXXXXX")"
+
+  ensure_not_root
+  require_age
+
+  cleanup_secret_edit() {
+    rm -f -- "$plaintext_path"
+  }
+
+  trap cleanup_secret_edit EXIT HUP INT TERM
+
+  if [ -f "$target_path" ]; then
+    age_decrypt_file "$target_path" "$plaintext_path"
+  else
+    : > "$plaintext_path"
+    chmod 600 "$plaintext_path"
+  fi
+
+  open_secret_in_editor "$plaintext_path"
+  encrypt_secret_file "$plaintext_path" "$target_path"
+  trap - EXIT HUP INT TERM
+  rm -f -- "$plaintext_path"
+  printf '%s\n' "updated $(normalize_secret_path "$1")"
+}
+
+rekey_secret_file() {
+  encrypted_path="$1"
+  plaintext_path="$(mktemp "${TMPDIR:-/tmp}/rig-secret.XXXXXX")"
+
+  cleanup_rekey_plaintext() {
+    rm -f -- "$plaintext_path"
+  }
+
+  trap cleanup_rekey_plaintext EXIT HUP INT TERM
+  age_decrypt_file "$encrypted_path" "$plaintext_path"
+  encrypt_secret_file "$plaintext_path" "$encrypted_path"
+  trap - EXIT HUP INT TERM
+  rm -f -- "$plaintext_path"
+}
+
+do_secrets_import() {
+  [ "$#" -eq 2 ] || die "usage: rig secrets import <src> <path>"
+
+  source_path="$1"
+  target_path="$(secret_abs_path "$2")"
+
+  ensure_not_root
+  require_age
+  [ -f "$source_path" ] || die "missing source file: $source_path"
+
+  encrypt_secret_file "$source_path" "$target_path"
+  printf '%s\n' "imported $source_path -> $(normalize_secret_path "$2")"
+}
+
+do_secrets_init_host() {
+  host="$(resolve_host_arg "$@")"
+  recipients_path="$(host_recipients_path "$host")"
+  recipients_dir="$(dirname "$recipients_path")"
+  recipient="$(local_age_recipient)"
+  temp_file="$(mktemp "${TMPDIR:-/tmp}/rig-recipients.XXXXXX")"
+
+  ensure_not_root
+  require_age
+  mkdir -p "$recipients_dir"
+
+  cleanup_recipients_temp() {
+    rm -f -- "$temp_file"
+  }
+
+  trap cleanup_recipients_temp EXIT HUP INT TERM
+
+  if [ -f "$recipients_path" ]; then
+    grep -Ev '^age1replacewithyourpublicrecipientx+$' "$recipients_path" >"$temp_file" || true
+  else
+    printf '%s\n' "# Age recipients for $host" >"$temp_file"
+  fi
+
+  if ! grep -Fxq "$recipient" "$temp_file"; then
+    printf '%s\n' "$recipient" >>"$temp_file"
+  fi
+
+  mv "$temp_file" "$recipients_path"
+  trap - EXIT HUP INT TERM
+  printf '%s\n' "initialized $recipients_path"
+}
+
+do_secrets_recipient() {
+  recipients_path="$(host_recipients_path "$@")"
+  [ -f "$recipients_path" ] || die "missing recipients file: $recipients_path"
+
+  recipient="$(first_recipient_in_file "$recipients_path" || true)"
+  [ -n "$recipient" ] || die "no recipients configured in $recipients_path"
+  printf '%s\n' "$recipient"
+}
+
+do_secrets_rekey() {
+  ensure_not_root
+  require_age
+
+  if [ "$#" -ge 1 ]; then
+    target="$(secret_abs_path "$1")"
+    [ -f "$target" ] || die "secret not found: $(normalize_secret_path "$1")"
+    rekey_secret_file "$target"
+    printf '%s\n' "rekeyed $(normalize_secret_path "$1")"
+    return 0
+  fi
+
+  [ -d "$repo_root/secrets" ] || die "no secrets/ directory found"
+
+  find "$repo_root/secrets" -type f -name '*.age' | sort | while IFS= read -r encrypted; do
+    rekey_secret_file "$encrypted"
+    printf '%s\n' "rekeyed ${encrypted#"$repo_root"/secrets/}"
+  done
+}
+
+do_secrets_scan() {
+  ensure_not_root
+  require_command git
+  cd "$repo_root"
+  exec "$repo_root/bin/check-secrets"
+}
+
+do_secrets() {
+  subcommand="${1:-help}"
+  if [ "$#" -gt 0 ]; then
+    shift
+  fi
+
+  case "$subcommand" in
+    decrypt)
+      do_secrets_decrypt "$@"
+      ;;
+    edit)
+      do_secrets_edit "$@"
+      ;;
+    import)
+      do_secrets_import "$@"
+      ;;
+    init-host)
+      do_secrets_init_host "$@"
+      ;;
+    recipient)
+      do_secrets_recipient "$@"
+      ;;
+    rekey)
+      do_secrets_rekey "$@"
+      ;;
+    scan)
+      do_secrets_scan
+      ;;
+    help|-h|--help)
+      usage
+      ;;
+    *)
+      die "unknown secrets subcommand: $subcommand"
+      ;;
+  esac
+}
+
+do_install_hooks() {
+  require_command git
+  ensure_not_root
+  cd "$repo_root"
+  git config core.hooksPath hooks
+  printf '%s\n' "configured git hooksPath to hooks"
+}
+
+maybe_decrypt_secrets() {
+  host="$1"
+
+  if secret_tree_has_entries; then
+    do_secrets_decrypt "$host"
+  fi
+}
+
+do_bootstrap() {
+  host="$(resolve_host_arg "$@")"
+  kind="$(host_kind "$host")"
+
+  require_command nix
+  require_command sudo
+  ensure_not_root
+  ensure_age_identity_dir
+
+  cd "$repo_root"
+  maybe_decrypt_secrets "$host"
+
+  case "$kind" in
+    darwin)
+      nix_cmd build ".#darwinConfigurations.$host.system"
+      exec sudo ./result/sw/bin/darwin-rebuild switch --flake ".#$host"
+      ;;
+    nixos)
+      nix_cmd build ".#nixosConfigurations.$host.config.system.build.toplevel"
+      exec sudo ./result/bin/switch-to-configuration switch
+      ;;
+    *)
+      die "unsupported host kind: $kind"
+      ;;
+  esac
+}
+
+do_build() {
+  host="$(resolve_host_arg "$@")"
+  kind="$(host_kind "$host")"
+
+  require_command nix
+  ensure_not_root
+
+  cd "$repo_root"
+
+  case "$kind" in
+    darwin)
+      exec nix_cmd build ".#darwinConfigurations.$host.system"
+      ;;
+    nixos)
+      exec nix_cmd build ".#nixosConfigurations.$host.config.system.build.toplevel"
+      ;;
+    *)
+      die "unsupported host kind: $kind"
+      ;;
+  esac
+}
+
+do_switch() {
+  host="$(resolve_host_arg "$@")"
+  kind="$(host_kind "$host")"
+
+  require_command nix
+  require_command sudo
+  ensure_not_root
+
+  cd "$repo_root"
+  maybe_decrypt_secrets "$host"
+
+  case "$kind" in
+    darwin)
+      nix_cmd build ".#darwinConfigurations.$host.system"
+      exec sudo ./result/sw/bin/darwin-rebuild switch --flake ".#$host"
+      ;;
+    nixos)
+      nix_cmd build ".#nixosConfigurations.$host.config.system.build.toplevel"
+      exec sudo ./result/bin/switch-to-configuration switch
+      ;;
+    *)
+      die "unsupported host kind: $kind"
+      ;;
+  esac
+}
+
+do_check() {
+  require_command nix
+  ensure_not_root
+  cd "$repo_root"
+  exec nix_cmd flake check
+}
+
+do_update() {
+  require_command nix
+  ensure_not_root
+  cd "$repo_root"
+  exec nix_cmd flake update
+}
+
+do_fmt() {
+  require_command nix
+  ensure_not_root
+  cd "$repo_root"
+  exec nix_cmd fmt
+}
+
+do_update_switch() {
+  host="$(resolve_host_arg "$@")"
+  kind="$(host_kind "$host")"
+
+  require_command nix
+  require_command sudo
+  ensure_not_root
+
+  cd "$repo_root"
+
+  nix_cmd flake update
+  maybe_decrypt_secrets "$host"
+
+  case "$kind" in
+    darwin)
+      nix_cmd build ".#darwinConfigurations.$host.system"
+      exec sudo ./result/sw/bin/darwin-rebuild switch --flake ".#$host"
+      ;;
+    nixos)
+      nix_cmd build ".#nixosConfigurations.$host.config.system.build.toplevel"
+      exec sudo ./result/bin/switch-to-configuration switch
+      ;;
+    *)
+      die "unsupported host kind: $kind"
+      ;;
+  esac
+}
+
+cmd="${1:-help}"
+if [ "$#" -gt 0 ]; then
+  shift
+fi
+
+case "$cmd" in
+  bootstrap)
+    do_bootstrap "$@"
+    ;;
+  build)
+    do_build "$@"
+    ;;
+  switch)
+    do_switch "$@"
+    ;;
+  check)
+    do_check
+    ;;
+  fmt)
+    do_fmt
+    ;;
+  update)
+    do_update
+    ;;
+  update-switch)
+    do_update_switch "$@"
+    ;;
+  host)
+    resolve_host_arg "$@"
+    ;;
+  hosts)
+    list_hosts
+    ;;
+  secrets)
+    do_secrets "$@"
+    ;;
+  install-hooks)
+    do_install_hooks
+    ;;
+  help|-h|--help)
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 1
+    ;;
+esac
