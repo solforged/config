@@ -160,6 +160,22 @@ in
       };
     };
 
+    openclaw = {
+      tailscaleMagicDnsName = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        example = "host.example.ts.net";
+        description = "MagicDNS hostname exposed to OpenClaw clients when the host runs through Tailscale.";
+      };
+
+      telegramOwnerId = mkOption {
+        type = types.nullOr types.int;
+        default = null;
+        example = 123456789;
+        description = "Telegram user ID authorized to pair and control the host-specific OpenClaw instance.";
+      };
+    };
+
     features = {
       homebrew.enable = mkOption {
         type = types.bool;
@@ -183,6 +199,26 @@ in
         type = types.bool;
         default = true;
         description = "Map Caps Lock to Control via hidutil on Darwin.";
+      };
+    };
+
+    power = {
+      settings = mkOption {
+        type = types.attrsOf (
+          types.oneOf [
+            types.bool
+            types.int
+          ]
+        );
+        default = { };
+        example = {
+          displaysleep = 10;
+          disksleep = 0;
+          sleep = 0;
+          tcpkeepalive = true;
+          womp = true;
+        };
+        description = "Darwin power-management settings applied via pmset -a during activation.";
       };
     };
 
@@ -217,6 +253,15 @@ in
         type = types.listOf types.str;
         default = [ ];
         description = "Merged Homebrew casks from profiles.";
+      };
+
+      masApps = mkOption {
+        type = types.attrsOf types.int;
+        default = { };
+        example = {
+          Amphetamine = 937984704;
+        };
+        description = "Merged Mac App Store applications for nix-darwin Homebrew management.";
       };
     };
   };

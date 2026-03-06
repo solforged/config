@@ -233,6 +233,10 @@ interfaces.
 
 - Checked-in OpenClaw documents live in
   [config/openclaw/documents](/Users/admin/.local/share/dotfiles/config/openclaw/documents).
+- The Nix-managed bootstrap docs (`AGENTS.md`, `SOUL.md`, `TOOLS.md`,
+  `IDENTITY.md`) are copied into the live workspace as regular files during
+  activation because OpenClaw ignores workspace symlinks that resolve outside
+  the workspace root.
 - Host-scoped OpenClaw secrets decrypt to
   `$XDG_STATE_HOME/dotfiles/secrets/openclaw` on `sigil`.
 - The host module is
@@ -244,6 +248,7 @@ interfaces.
 Create or refresh the encrypted secret files with:
 
 ```sh
+./bin/rig secrets edit hosts/sigil/openclaw/brave-api-key
 ./bin/rig secrets edit hosts/sigil/openclaw/openai-api-key
 ./bin/rig secrets edit hosts/sigil/openclaw/telegram-bot-token
 ./bin/rig secrets edit hosts/sigil/openclaw/gateway-token
@@ -261,11 +266,15 @@ One-time bootstrap after `./bin/rig switch sigil`:
 ```sh
 open -a Tailscale
 tailscale status
+tailscale set --hostname sigil
 ```
 
 Sign in through the Tailscale UI, approve the machine into the correct tailnet,
 and leave MagicDNS enabled. After that, OpenClaw can publish privately through
-`tailscale serve` without exposing the gateway beyond the tailnet.
+`tailscale serve` without exposing the gateway beyond the tailnet. The
+configured node hostname is `sigil`, which resolves to the MagicDNS name
+`sigil.ussuri-alphard.ts.net`; OpenClaw reads that FQDN directly from
+`tailscale status --json`.
 
 Host-specific validation and rollout:
 
@@ -284,10 +293,36 @@ Manual smoke test after `./bin/rig switch sigil`:
   `tailscale serve status`
 - tail the gateway log:
   `tail -50 /tmp/openclaw/openclaw-gateway.log`
-- verify the documents are symlinked under
+- verify the bootstrap documents are present as regular files under
   `$XDG_DATA_HOME/openclaw/workspace`
 - send one Telegram message from an allowed account and confirm one OpenAI-backed
   response succeeds
+- `sigil` intentionally keeps the OpenClaw model config on OpenAI only; the
+  Claude and Gemini fallback entries in
+  [hosts/darwin/sigil/openclaw.nix](/Users/admin/.local/share/dotfiles/hosts/darwin/sigil/openclaw.nix)
+  are commented out
+
+## AI CLIs
+
+The `development` profile currently installs only the OpenAI CLI:
+
+- `codex` via `pkgs.codex`
+
+Claude and Gemini integration is disabled globally for now. Codex already uses
+`$CODEX_HOME`, which is set to `$XDG_DATA_HOME/codex` in the shared Home
+Manager base module.
+
+After switching a host with the `development` profile, run Codex once and
+complete the browser login flow:
+
+```sh
+codex
+```
+- `codex`: choose `Sign in with ChatGPT`
+
+No encrypted secret files are required for that consumer flow. If you later
+want API-key auth, keep the key in your normal local secret overrides instead
+of committing it into the repo.
 
 ## Local-only overrides
 

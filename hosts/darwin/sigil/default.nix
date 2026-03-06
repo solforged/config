@@ -53,13 +53,34 @@
           capsToCtrl.enable = true;
         };
 
+        power.settings = {
+          displaysleep = 10;
+          disksleep = 0;
+          sleep = 0;
+          tcpkeepalive = true;
+          ttyskeepawake = true;
+          womp = true;
+        };
+
+        openclaw = {
+          tailscaleMagicDnsName = "sigil.ussuri-alphard.ts.net";
+          telegramOwnerId = 7703164198;
+        };
+
         packages.system = [
           inputs.nixpkgs.legacyPackages.aarch64-darwin.tailscale
         ];
 
         homebrew.casks = [
-          "tailscale"
+          "tailscale-app"
         ];
+
+        homebrew.masApps = {
+          # "AdGuard Mini" = 1555374974;
+          # Amphetamine = 937984704;
+          # "Dark Reader for Safari" = 1438243180;
+          # Surfingkeys = 1498893305;
+        };
       };
     };
 }

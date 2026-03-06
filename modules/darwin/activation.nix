@@ -2,10 +2,21 @@
 let
   cfg = config.dotfiles;
   isDarwin = lib.hasSuffix "darwin" cfg.host.platform;
+  formatPmsetValue =
+    value: if builtins.isBool value then if value then "1" else "0" else toString value;
+  pmsetArgs = lib.concatStringsSep " " (
+    lib.mapAttrsToList (
+      name: value: "${lib.escapeShellArg name} ${lib.escapeShellArg (formatPmsetValue value)}"
+    ) cfg.power.settings
+  );
 in
 {
   config = lib.mkIf isDarwin {
     system.activationScripts.postActivation.text = lib.mkAfter ''
+      ${lib.optionalString (cfg.power.settings != { }) ''
+        /usr/bin/pmset -a ${pmsetArgs}
+      ''}
+
       ${lib.optionalString cfg.features.touchIdSudo.enable ''
           pam_sudo_file="/etc/pam.d/sudo"
           pam_touch_id_line="auth       sufficient     pam_tid.so"
