@@ -18,12 +18,16 @@ let
 in
 {
   mkDarwinHost =
-    { host }:
+    {
+      host,
+      extraModules ? [ ],
+      extraSpecialArgs ? { },
+    }:
     inputs.nix-darwin.lib.darwinSystem {
       system = host.system;
       specialArgs = {
         inherit inputs self;
-      };
+      } // extraSpecialArgs;
       modules =
         sharedModules
         ++ profileModules
@@ -37,17 +41,24 @@ in
           ../modules/darwin/homebrew.nix
           ../modules/darwin/activation.nix
           ../modules/home/base.nix
+        ]
+        ++ extraModules
+        ++ [
           host.module
         ];
     };
 
   mkNixosHost =
-    { host }:
+    {
+      host,
+      extraModules ? [ ],
+      extraSpecialArgs ? { },
+    }:
     inputs.nixpkgs.lib.nixosSystem {
       system = host.system;
       specialArgs = {
         inherit inputs self;
-      };
+      } // extraSpecialArgs;
       modules =
         sharedModules
         ++ profileModules
@@ -58,6 +69,9 @@ in
           inputs.home-manager.nixosModules.home-manager
           ../modules/nixos/base.nix
           ../modules/home/base.nix
+        ]
+        ++ extraModules
+        ++ [
           host.module
         ];
     };

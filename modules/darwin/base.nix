@@ -1,4 +1,10 @@
-{ config, lib, pkgs, self, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  self,
+  ...
+}:
 let
   cfg = config.dotfiles;
   isDarwin = lib.hasSuffix "darwin" cfg.host.platform;
@@ -18,6 +24,8 @@ in
       enable = true;
       customSettings.use-xdg-base-directories = true;
     };
+
+    nix.settings.warn-dirty = false;
 
     networking.hostName = cfg.host.slug;
     networking.localHostName = cfg.host.slug;

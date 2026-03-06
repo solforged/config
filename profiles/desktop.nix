@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   cfg = config.dotfiles;
   isDarwin = lib.hasSuffix "darwin" cfg.host.platform;
