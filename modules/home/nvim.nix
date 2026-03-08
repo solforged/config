@@ -8,4 +8,3 @@ in
     xdg.configFile."nvim".recursive = true;
   };
 }
-

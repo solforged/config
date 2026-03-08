@@ -20,7 +20,6 @@
         inherit inputs self;
       };
       sigil = import ./hosts/darwin/sigil;
-      atlas = import ./hosts/darwin/atlas;
     in
     {
       lib = dotfilesLib;
@@ -39,14 +38,10 @@
       darwinConfigurations.sigil = dotfilesLib.mkDarwinHost {
         host = sigil;
       };
-      darwinConfigurations.atlas = dotfilesLib.mkDarwinHost {
-        host = atlas;
-      };
 
       checks = {
         aarch64-darwin = {
           sigil = self.darwinConfigurations.sigil.system;
-          atlas = self.darwinConfigurations.atlas.system;
         };
       };
 

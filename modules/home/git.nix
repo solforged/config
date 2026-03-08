@@ -19,22 +19,14 @@ in
       init.defaultBranch = "main";
       pull.rebase = false;
       push.autoSetupRemote = true;
-    } // (
+    }
+    // (
       if cfg.user.fullName != null || cfg.user.email != null then
         {
-          user = { }
-            // (
-              if cfg.user.fullName != null then
-                { name = cfg.user.fullName; }
-              else
-                { }
-            )
-            // (
-              if cfg.user.email != null then
-                { email = cfg.user.email; }
-              else
-                { }
-            );
+          user =
+            { }
+            // (if cfg.user.fullName != null then { name = cfg.user.fullName; } else { })
+            // (if cfg.user.email != null then { email = cfg.user.email; } else { });
         }
       else
         { }
