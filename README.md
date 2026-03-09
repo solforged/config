@@ -266,11 +266,15 @@ One-time bootstrap after `./bin/rig switch sigil`:
 ```sh
 open -a Tailscale
 tailscale status
+tailscale set --hostname sigil
 ```
 
 Sign in through the Tailscale UI, approve the machine into the correct tailnet,
 and leave MagicDNS enabled. After that, OpenClaw can publish privately through
-`tailscale serve` without exposing the gateway beyond the tailnet.
+`tailscale serve` without exposing the gateway beyond the tailnet. The
+configured node hostname is `sigil`, which resolves to the MagicDNS name
+`sigil.ussuri-alphard.ts.net`; OpenClaw reads that FQDN directly from
+`tailscale status --json`.
 
 Host-specific validation and rollout:
 
@@ -289,7 +293,7 @@ Manual smoke test after `./bin/rig switch sigil`:
   `tailscale serve status`
 - tail the gateway log:
   `tail -50 /tmp/openclaw/openclaw-gateway.log`
-- verify the documents are symlinked under
+- verify the bootstrap documents are present as regular files under
   `$XDG_DATA_HOME/openclaw/workspace`
 - send one Telegram message from an allowed account and confirm one OpenAI-backed
   response succeeds

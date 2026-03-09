@@ -11,6 +11,22 @@ let
   openclawOAuthDir = "${openclawStateDir}/credentials";
   openclawWorkspaceDir = "${config.xdg.dataHome}/openclaw/workspace";
   installBin = lib.getExe' pkgs.coreutils "install";
+  bootstrapDocNames = [
+    "AGENTS.md"
+    "SOUL.md"
+    "TOOLS.md"
+    "IDENTITY.md"
+  ];
+  bootstrapDocRelPath = name: ".local/share/openclaw/workspace/${name}";
+  bootstrapDocSources = builtins.listToAttrs (
+    map (name: {
+      inherit name;
+      value = config.home.file."${bootstrapDocRelPath name}".source;
+    }) bootstrapDocNames
+  );
+  tailscaleBin = lib.getExe' pkgs.tailscale "tailscale";
+  tailscaleHostName = "sigil";
+  tailscaleMagicDnsName = "${tailscaleHostName}.ussuri-alphard.ts.net";
 in
 {
   home.activation.prepareOpenclawConfig = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
@@ -38,6 +54,11 @@ in
   '';
 
   home.activation.openclawConfigFiles = lib.mkForce (lib.hm.dag.entryAfter [ "openclawDirs" ] "");
+  home.activation.openclawDocumentGuard = lib.mkForce (lib.hm.dag.entryBefore [ "writeBoundary" ] "");
+
+  home.file = lib.genAttrs (map bootstrapDocRelPath bootstrapDocNames) (_: {
+    enable = lib.mkForce false;
+  });
 
   home.sessionVariables = {
     OPENCLAW_STATE_DIR = openclawStateDir;
@@ -65,16 +86,28 @@ in
     fi
   '';
 
-  home.activation.materializeOpenclawBootstrapDocs = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+  home.activation.ensureOpenclawTailscaleHostname = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    if "${tailscaleBin}" status --json >/dev/null 2>&1; then
+      if ! "${tailscaleBin}" set --hostname "${tailscaleHostName}" >/dev/null 2>&1; then
+        /bin/echo "warning: unable to set Tailscale hostname to ${tailscaleHostName}; OpenClaw will keep using the current MagicDNS name." >&2
+      fi
+    else
+      /bin/echo "warning: Tailscale is not connected; start the app and run 'tailscale set --hostname ${tailscaleHostName}' so OpenClaw resolves ${tailscaleMagicDnsName}." >&2
+    fi
+  '';
+
+  home.activation.materializeOpenclawBootstrapDocs = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
     /bin/mkdir -p "${openclawWorkspaceDir}"
 
-    # OpenClaw bootstrap guards reject workspace symlinks that resolve outside
-    # the workspace root, so keep the Nix-managed persona docs as plain files.
-    for name in AGENTS.md SOUL.md TOOLS.md IDENTITY.md; do
-      target="${openclawWorkspaceDir}/$name"
-      run rm -f "$target"
-      "${installBin}" -m 0644 "${documentsDir}/$name" "$target"
-    done
+    # OpenClaw rejects workspace symlinks that resolve outside the workspace
+    # root, so materialize the Nix-generated bootstrap docs as plain files
+    # after Home Manager finishes its normal link step.
+    ${lib.concatStringsSep "\n" (
+      map (name: ''
+        run rm -f "${openclawWorkspaceDir}/${name}"
+        "${installBin}" -m 0644 "${bootstrapDocSources.${name}}" "${openclawWorkspaceDir}/${name}"
+      '') bootstrapDocNames
+    )}
   '';
 
   programs.openclaw = {
@@ -111,6 +144,7 @@ in
             };
           };
           tailscale = {
+            # OpenClaw reads the node's MagicDNS name from `tailscale status --json`.
             mode = "serve";
             resetOnExit = true;
           };
