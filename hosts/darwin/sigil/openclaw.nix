@@ -12,6 +12,21 @@ let
   openclawWorkspaceDir = "${config.xdg.dataHome}/openclaw/workspace";
 in
 {
+  home.activation.prepareOpenclawConfig = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
+    if [ -f "${openclawStateDir}/openclaw.json" ] && [ ! -L "${openclawStateDir}/openclaw.json" ]; then
+      timestamp="$(${lib.getExe' pkgs.coreutils "date"} +%Y%m%d-%H%M%S)"
+      backupPath="${openclawStateDir}/openclaw.json.runtime-$timestamp"
+      suffix=0
+
+      while [ -e "$backupPath" ]; do
+        suffix=$((suffix + 1))
+        backupPath="${openclawStateDir}/openclaw.json.runtime-$timestamp.$suffix"
+      done
+
+      run /bin/mv "${openclawStateDir}/openclaw.json" "$backupPath"
+    fi
+  '';
+
   home.sessionVariables = {
     OPENCLAW_STATE_DIR = openclawStateDir;
     OPENCLAW_CONFIG_PATH = "${openclawStateDir}/openclaw.json";
