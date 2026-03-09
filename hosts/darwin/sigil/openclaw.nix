@@ -115,6 +115,10 @@ in
 
         agents.defaults.model = {
           primary = "openai-codex/gpt-5.4";
+          fallbacks = [
+            "anthropic/claude-opus-4-6"
+            "google-gemini-cli/gemini-3.1-pro"
+          ];
         };
 
         tools.web.search = {
