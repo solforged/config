@@ -25,6 +25,7 @@ in
       taps = lib.unique cfg.homebrew.taps;
       brews = lib.unique cfg.homebrew.brews;
       casks = lib.unique (cfg.homebrew.casks ++ appCasks);
+      masApps = cfg.homebrew.masApps;
     };
   };
 }
