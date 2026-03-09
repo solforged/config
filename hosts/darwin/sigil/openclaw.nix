@@ -91,11 +91,8 @@ in
     /bin/chmod 700 "${openclawOAuthDir}"
   '';
 
-  home.activation.ensureOpenclawGatewayTokenEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    if [ -f "${secretDir}/gateway-token" ]; then
-      token="$(${lib.getExe' pkgs.coreutils "cat"} "${secretDir}/gateway-token")"
-      /bin/launchctl setenv OPENCLAW_GATEWAY_TOKEN "$token"
-    fi
+  home.activation.clearOpenclawGatewayTokenEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    /bin/launchctl unsetenv OPENCLAW_GATEWAY_TOKEN || true
   '';
 
   home.activation.ensureOpenclawBraveApiKeyEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
@@ -127,6 +124,31 @@ in
         "${installBin}" -m 0644 "${bootstrapDocSources.${name}}" "${openclawWorkspaceDir}/${name}"
       '') bootstrapDocNames
     )}
+  '';
+
+  home.activation.materializeOpenclawGatewayConfig = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    configPath="${openclawStateDir}/openclaw.json"
+
+    if [ ! -f "${secretDir}/gateway-token" ]; then
+      /bin/echo "warning: missing ${secretDir}/gateway-token; OpenClaw gateway auth will keep using the rendered config source." >&2
+      exit 0
+    fi
+
+    renderedConfig="$configPath"
+    if [ -L "$configPath" ]; then
+      renderedConfig="$(${lib.getExe' pkgs.coreutils "readlink"} "$configPath")"
+    fi
+
+    tmpPath="$(${lib.getExe' pkgs.coreutils "mktemp"} "${openclawStateDir}/openclaw.json.XXXXXX")"
+    token="$(${lib.getExe' pkgs.coreutils "cat"} "${secretDir}/gateway-token")"
+
+    "${lib.getExe pkgs.jq}" \
+      --arg token "$token" \
+      'del(.secrets.providers.gatewaytoken) | .gateway.auth.token = $token' \
+      "$renderedConfig" > "$tmpPath"
+
+    /bin/chmod 600 "$tmpPath"
+    run /bin/mv "$tmpPath" "$configPath"
   '';
 
   programs.zsh.shellAliases = {
@@ -189,6 +211,7 @@ in
           allowFrom = [
             telegramOwnerId
           ];
+          dmPolicy = "allowlist";
           # Telegram group senders are authorized separately from DMs/pairing.
           groupAllowFrom = [
             telegramOwnerId
