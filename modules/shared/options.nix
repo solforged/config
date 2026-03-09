@@ -186,6 +186,26 @@ in
       };
     };
 
+    power = {
+      settings = mkOption {
+        type = types.attrsOf (
+          types.oneOf [
+            types.bool
+            types.int
+          ]
+        );
+        default = { };
+        example = {
+          displaysleep = 10;
+          disksleep = 0;
+          sleep = 0;
+          tcpkeepalive = true;
+          womp = true;
+        };
+        description = "Darwin power-management settings applied via pmset -a during activation.";
+      };
+    };
+
     packages = {
       home = mkOption {
         type = types.listOf types.package;
@@ -217,6 +237,15 @@ in
         type = types.listOf types.str;
         default = [ ];
         description = "Merged Homebrew casks from profiles.";
+      };
+
+      masApps = mkOption {
+        type = types.attrsOf types.int;
+        default = { };
+        example = {
+          Amphetamine = 937984704;
+        };
+        description = "Merged Mac App Store applications for nix-darwin Homebrew management.";
       };
     };
   };

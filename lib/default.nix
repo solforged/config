@@ -27,7 +27,8 @@ in
       system = host.system;
       specialArgs = {
         inherit inputs self;
-      } // extraSpecialArgs;
+      }
+      // extraSpecialArgs;
       modules =
         sharedModules
         ++ profileModules
@@ -58,7 +59,8 @@ in
       system = host.system;
       specialArgs = {
         inherit inputs self;
-      } // extraSpecialArgs;
+      }
+      // extraSpecialArgs;
       modules =
         sharedModules
         ++ profileModules
