@@ -1,4 +1,9 @@
-{ lib, osConfig, ... }:
+{
+  lib,
+  osConfig,
+  pkgs,
+  ...
+}:
 let
   cfg = osConfig.dotfiles;
   isDarwin = lib.hasSuffix "darwin" cfg.host.platform;
@@ -32,12 +37,7 @@ in
 {
   config = lib.mkIf (isDarwin && cfg.features.dock.enable && lib.elem "desktop" cfg.profiles) {
     home.activation.configureDock = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
-      DOCKUTIL=""
-      if [ -x /opt/homebrew/bin/dockutil ]; then
-        DOCKUTIL=/opt/homebrew/bin/dockutil
-      elif [ -x /usr/local/bin/dockutil ]; then
-        DOCKUTIL=/usr/local/bin/dockutil
-      fi
+      DOCKUTIL="${lib.getExe pkgs.dockutil}"
 
       if [ -n "$DOCKUTIL" ] && [ -e "$HOME/Library/Preferences/com.apple.dock.plist" ]; then
         add_dock_item() {

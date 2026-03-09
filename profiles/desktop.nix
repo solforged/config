@@ -10,8 +10,8 @@ let
 in
 {
   config = lib.mkIf (lib.elem "desktop" cfg.profiles) {
-    dotfiles.homebrew.brews = lib.optionals isDarwin [
-      "dockutil"
+    dotfiles.packages.home = lib.optionals isDarwin [
+      pkgs.dockutil
     ];
 
     dotfiles.homebrew.casks = lib.optionals isDarwin [
