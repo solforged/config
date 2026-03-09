@@ -1,4 +1,4 @@
-{ osConfig, ... }:
+{ lib, osConfig, ... }:
 let
   cfg = osConfig.dotfiles;
 in
@@ -12,23 +12,23 @@ in
       add_newline = true;
       command_timeout = 1200;
 
-      format = ''
-        $directory\
-        $git_branch\
-        $git_status\
-        $nodejs\
-        $python\
-        $cmd_duration\
-        $line_break\
-        $character\
-      '';
+      format = lib.concatStrings [
+        "$directory"
+        "$git_branch"
+        "$git_status"
+        "$nodejs"
+        "$python"
+        "$cmd_duration"
+        "$line_break"
+        "$character"
+      ];
 
       right_format = "$nix_shell";
 
       character = {
-        success_symbol = "[λ](bold white) ";
-        error_symbol = "[λ](bold red) ";
-        vimcmd_symbol = "[λ](bold white) ";
+        success_symbol = "[λ](bold white)";
+        error_symbol = "[λ](bold red)";
+        vimcmd_symbol = "[λ](bold white)";
       };
 
       cmd_duration = {
@@ -41,7 +41,7 @@ in
         format = "[$path]($style) ";
         style = "bold green";
         home_symbol = "~";
-        truncation_length = 1;
+        truncation_length = 3;
         truncate_to_repo = false;
       };
 

@@ -11,6 +11,14 @@ let
 in
 {
   config = lib.mkIf (cfg.apps.shell == "zsh") {
+    programs.atuin = {
+      enable = true;
+      enableZshIntegration = true;
+      settings = {
+        auto_sync = false;
+      };
+    };
+
     programs.zsh = {
       enable = true;
       dotDir = "${config.xdg.configHome}/zsh";
@@ -35,8 +43,6 @@ in
         share = true;
         size = 100000;
       };
-
-      historySubstringSearch.enable = true;
 
       autosuggestion = {
         enable = true;
@@ -67,13 +73,37 @@ in
         DOTFILES_DIR = "${config.xdg.dataHome}/dotfiles";
       };
 
+      dirHashes = {
+        cache = config.xdg.cacheHome;
+        cfg = config.xdg.configHome;
+        data = config.xdg.dataHome;
+        df = "${config.xdg.dataHome}/dotfiles";
+        state = config.xdg.stateHome;
+      };
+
       shellAliases = {
         cdd = ''cd "$DOTFILES_DIR"'';
         e = "\${EDITOR:-nvim}";
+        g = "git";
+        ga = "git add";
+        gb = "git branch";
+        gc = "git commit";
+        gcfg = "git config";
         gg = "lazygit";
+        gl = "git log --oneline --decorate --graph";
+        gp = "git push";
+        gs = "git status -sb";
         lg = "lazygit";
         md = "mkdir -p";
-        tldr = ''tldr --config-path "$XDG_CONFIG_HOME/tldr/config.toml"'';
+        oc = "openclaw";
+        rb = "rig build";
+        rc = "rig check";
+        rf = "rig fmt";
+        rse = "rig secrets edit";
+        rsi = "rig secrets import";
+        rsk = "rig secrets rekey";
+        rsw = "rig switch";
+        tldr = "tldr --config-path ${config.xdg.configHome}/tldr/config.toml";
       };
 
       zsh-abbr = {
@@ -87,12 +117,17 @@ in
           bs = "brew search";
           bu = "brew uninstall --zap";
           bz = "brew uninstall --zap";
+          cache = "~cache";
           cdd = "cd $DOTFILES_DIR";
+          cfg = "~cfg";
           ci = "brew install --cask";
+          data = "~data";
+          df = "~df";
           e = "nvim";
           gcl = "git clone";
           gg = "lazygit";
           md = "mkdir -p";
+          state = "~state";
         };
       };
 
