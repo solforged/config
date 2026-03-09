@@ -11,12 +11,7 @@ let
 
   editorCommand = if cfg.apps.editor == "emacs" then "emacsclient -c -a emacs" else "nvim";
 
-  selectedPackages = [
-    pkgs.starship
-  ]
-  ++ lib.optionals (cfg.apps.shell == "fish") [ pkgs.fish ]
-  ++ lib.optionals (cfg.apps.shell == "nushell") [ pkgs.nushell ]
-  ++ lib.optionals (cfg.apps.editor == "emacs") [ pkgs.emacs ];
+  selectedPackages = lib.optionals (cfg.apps.editor == "emacs") [ pkgs.emacs ];
 in
 {
   home-manager.useGlobalPkgs = true;

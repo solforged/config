@@ -23,37 +23,35 @@
       dotfilesLib = import ./lib {
         inherit inputs self;
       };
-      sigil = import ./hosts/darwin/sigil;
+      darwinHosts = dotfilesLib.discoverHosts ./hosts/darwin;
+      nixosHosts = dotfilesLib.discoverHosts ./hosts/nixos;
+      darwinConfigurations = builtins.mapAttrs (
+        _: host: dotfilesLib.mkDarwinHost { inherit host; }
+      ) darwinHosts;
+      nixosConfigurations = builtins.mapAttrs (
+        _: host: dotfilesLib.mkNixosHost { inherit host; }
+      ) nixosHosts;
     in
     {
       lib = dotfilesLib;
 
       overlays.default = import ./overlays;
 
-      packages = {
-        aarch64-darwin = import ./pkgs {
-          pkgs = nixpkgs.legacyPackages.aarch64-darwin;
-        };
-        x86_64-linux = import ./pkgs {
-          pkgs = nixpkgs.legacyPackages.x86_64-linux;
-        };
+      packages = dotfilesLib.forAllSystems (
+        system: import ./pkgs { pkgs = nixpkgs.legacyPackages.${system}; }
+      );
+
+      inherit darwinConfigurations nixosConfigurations;
+
+      checks = dotfilesLib.mkChecks {
+        inherit
+          darwinHosts
+          darwinConfigurations
+          nixosHosts
+          nixosConfigurations
+          ;
       };
 
-      darwinConfigurations.sigil = dotfilesLib.mkDarwinHost {
-        host = sigil;
-      };
-
-      checks = {
-        aarch64-darwin = {
-          sigil = self.darwinConfigurations.sigil.system;
-        };
-      };
-
-      nixosConfigurations = { };
-
-      formatter = {
-        aarch64-darwin = nixpkgs.legacyPackages.aarch64-darwin.nixfmt-rfc-style;
-        x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixfmt-rfc-style;
-      };
+      formatter = dotfilesLib.forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-rfc-style);
     };
 }

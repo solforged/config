@@ -128,17 +128,6 @@ in
             alias ll='ls -al'
           fi
 
-          if (( $+commands[yazi] )); then
-            y() {
-              local tmp cwd
-              tmp="$(mktemp -t yazi-cwd.XXXXXX)"
-              command yazi "$@" --cwd-file="$tmp"
-              cwd="$(cat "$tmp")"
-              [[ -n "$cwd" && "$cwd" != "$PWD" && -d "$cwd" ]] && builtin cd -- "$cwd"
-              rm -f -- "$tmp"
-            }
-          fi
-
           if (( $+commands[mise] )); then
             eval "$(mise activate zsh)"
           fi
@@ -151,12 +140,6 @@ in
         (lib.mkOrder 1160 ''
           if (( $+commands[eza] )); then
             compdef _eza ls l ll la ltr llm lx lS lt
-          fi
-        '')
-
-        (lib.mkOrder 1300 ''
-          if (( $+commands[starship] )); then
-            eval "$(starship init zsh)"
           fi
         '')
 

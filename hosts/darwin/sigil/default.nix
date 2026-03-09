@@ -62,6 +62,11 @@
           womp = true;
         };
 
+        openclaw = {
+          tailscaleMagicDnsName = "sigil.ussuri-alphard.ts.net";
+          telegramOwnerId = 7703164198;
+        };
+
         packages.system = [
           inputs.nixpkgs.legacyPackages.aarch64-darwin.tailscale
         ];
