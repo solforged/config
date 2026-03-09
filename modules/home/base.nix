@@ -29,6 +29,10 @@ in
 
   home-manager.users.${cfg.user.name} =
     { config, lib, ... }:
+    let
+      homeDirectory = config.home.homeDirectory;
+      xdg = config.xdg;
+    in
     {
       imports = [
         ./ai.nix
@@ -53,33 +57,33 @@ in
 
       xdg.enable = true;
 
-      home.sessionPath = [ "$HOME/.local/bin" ];
+      home.sessionPath = [ "${homeDirectory}/.local/bin" ];
 
       home.sessionVariables = {
-        AWS_CONFIG_FILE = "$XDG_CONFIG_HOME/aws/config";
-        AWS_SHARED_CREDENTIALS_FILE = "$XDG_CONFIG_HOME/aws/credentials";
+        AWS_CONFIG_FILE = "${xdg.configHome}/aws/config";
+        AWS_SHARED_CREDENTIALS_FILE = "${xdg.configHome}/aws/credentials";
         BAT_THEME = "Monokai Extended";
-        BUILDX_CONFIG = "$XDG_STATE_HOME/docker/buildx";
-        CARGO_HOME = "$XDG_DATA_HOME/cargo";
-        CODEX_HOME = "$XDG_DATA_HOME/codex";
-        DOCKER_CONFIG = "$XDG_CONFIG_HOME/docker";
+        BUILDX_CONFIG = "${xdg.stateHome}/docker/buildx";
+        CARGO_HOME = "${xdg.dataHome}/cargo";
+        CODEX_HOME = "${xdg.dataHome}/codex";
+        DOCKER_CONFIG = "${xdg.configHome}/docker";
         EDITOR = editorCommand;
-        GNUPGHOME = "$XDG_CONFIG_HOME/gnupg";
-        GOPATH = "$XDG_DATA_HOME/go";
-        IPYTHONDIR = "$XDG_CONFIG_HOME/ipython";
-        JUPYTER_CONFIG_DIR = "$XDG_CONFIG_HOME/jupyter";
-        JUPYTER_DATA_DIR = "$XDG_DATA_HOME/jupyter";
-        KUBECONFIG = "$XDG_CONFIG_HOME/kube/config";
-        LESSHISTFILE = "$XDG_STATE_HOME/less/history";
-        NPM_CONFIG_CACHE = "$XDG_CACHE_HOME/npm";
-        NPM_CONFIG_PREFIX = "$XDG_DATA_HOME/npm";
-        NPM_CONFIG_USERCONFIG = "$XDG_CONFIG_HOME/npm/npmrc";
-        PSQL_HISTORY = "$XDG_STATE_HOME/psql/history";
-        PYTHON_HISTORY = "$XDG_STATE_HOME/python/history";
+        GNUPGHOME = "${xdg.configHome}/gnupg";
+        GOPATH = "${xdg.dataHome}/go";
+        IPYTHONDIR = "${xdg.configHome}/ipython";
+        JUPYTER_CONFIG_DIR = "${xdg.configHome}/jupyter";
+        JUPYTER_DATA_DIR = "${xdg.dataHome}/jupyter";
+        KUBECONFIG = "${xdg.configHome}/kube/config";
+        LESSHISTFILE = "${xdg.stateHome}/less/history";
+        NPM_CONFIG_CACHE = "${xdg.cacheHome}/npm";
+        NPM_CONFIG_PREFIX = "${xdg.dataHome}/npm";
+        NPM_CONFIG_USERCONFIG = "${xdg.configHome}/npm/npmrc";
+        PSQL_HISTORY = "${xdg.stateHome}/psql/history";
+        PYTHON_HISTORY = "${xdg.stateHome}/python/history";
         RIG_HOST = cfg.host.slug;
-        RUSTUP_HOME = "$XDG_DATA_HOME/rustup";
-        TASKDATA = "$XDG_DATA_HOME/task";
-        TASKRC = "$XDG_CONFIG_HOME/task/taskrc";
+        RUSTUP_HOME = "${xdg.dataHome}/rustup";
+        TASKDATA = "${xdg.dataHome}/task";
+        TASKRC = "${xdg.configHome}/task/taskrc";
         VISUAL = editorCommand;
       };
 
