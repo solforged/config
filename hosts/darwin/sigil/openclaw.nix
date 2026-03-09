@@ -1,11 +1,18 @@
 {
   config,
   lib,
+  osConfig,
   pkgs,
+  self,
   ...
 }:
 let
-  documentsDir = ../../../config/openclaw/documents;
+  cfg = osConfig.dotfiles;
+  openclawCfg = cfg.openclaw;
+  documentsDir = builtins.path {
+    path = self.outPath + "/config/openclaw/documents";
+    name = "openclaw-documents";
+  };
   secretDir = "${config.xdg.stateHome}/dotfiles/secrets/openclaw";
   openclawStateDir = "${config.xdg.stateHome}/openclaw";
   openclawOAuthDir = "${openclawStateDir}/credentials";
@@ -25,11 +32,22 @@ let
     }) bootstrapDocNames
   );
   tailscaleBin = lib.getExe' pkgs.tailscale "tailscale";
-  tailscaleHostName = "sigil";
-  tailscaleMagicDnsName = "${tailscaleHostName}.ussuri-alphard.ts.net";
-  telegramOwnerId = 7703164198;
+  tailscaleHostName = cfg.host.slug;
+  tailscaleMagicDnsName = openclawCfg.tailscaleMagicDnsName;
+  telegramOwnerId = openclawCfg.telegramOwnerId;
 in
 {
+  assertions = [
+    {
+      assertion = tailscaleMagicDnsName != null;
+      message = "dotfiles.openclaw.tailscaleMagicDnsName must be set for OpenClaw hosts.";
+    }
+    {
+      assertion = telegramOwnerId != null;
+      message = "dotfiles.openclaw.telegramOwnerId must be set for OpenClaw hosts.";
+    }
+  ];
+
   home.activation.prepareOpenclawConfig = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
     configPath="${openclawStateDir}/openclaw.json"
 

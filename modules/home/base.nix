@@ -11,13 +11,7 @@ let
 
   editorCommand = if cfg.apps.editor == "emacs" then "emacsclient -c -a emacs" else "nvim";
 
-  selectedPackages = [
-    pkgs.starship
-  ]
-  ++ lib.optionals (cfg.apps.shell == "fish") [ pkgs.fish ]
-  ++ lib.optionals (cfg.apps.shell == "nushell") [ pkgs.nushell ]
-  ++ lib.optionals (cfg.apps.editor == "nvim") [ pkgs.neovim ]
-  ++ lib.optionals (cfg.apps.editor == "emacs") [ pkgs.emacs ];
+  selectedPackages = lib.optionals (cfg.apps.editor == "emacs") [ pkgs.emacs ];
 in
 {
   home-manager.useGlobalPkgs = true;
@@ -35,6 +29,7 @@ in
     in
     {
       imports = [
+        inputs.nixvim.homeModules.nixvim
         ./ai.nix
         ./dock.nix
         ./fish.nix
@@ -106,6 +101,7 @@ in
         /bin/mkdir -p "${config.xdg.dataHome}/codex"
       '';
 
+      home.file.".hushlogin".text = "";
       home.file.".local/bin/rig".source = ../../bin/rig;
       home.file.".config/nix-darwin/README.md".text = ''
         Local-only overrides belong outside the flake.
