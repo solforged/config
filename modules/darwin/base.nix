@@ -25,6 +25,8 @@ in
       customSettings.use-xdg-base-directories = true;
     };
 
+    nix.settings.warn-dirty = false;
+
     networking.hostName = cfg.host.slug;
     networking.localHostName = cfg.host.slug;
     networking.computerName = cfg.host.title;
