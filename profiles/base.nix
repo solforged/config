@@ -26,6 +26,7 @@ in
       p7zip
       poppler
       ripgrep
+      rsync
       tealdeer
       yazi
       zellij
