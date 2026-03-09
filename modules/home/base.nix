@@ -87,7 +87,10 @@ in
         enable = true;
         nix-direnv.enable = true;
       };
-      programs.eza.enable = true;
+      programs.eza = {
+        enable = true;
+        enableZshIntegration = false;
+      };
       programs.fzf.enable = true;
       programs.home-manager.enable = true;
       programs.zoxide.enable = true;

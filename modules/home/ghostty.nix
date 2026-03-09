@@ -9,7 +9,7 @@ in
       package = null;
       settings = {
         "font-size" = 12;
-        theme = "dark:TokyoNight Storm,light:TokyoNight Day";
+        theme = "dark:TokyoNight Storm,light:TokyoNight Storm";
         "scrollback-limit" = 1000000;
         keybind = [
           "super+n=new_window"

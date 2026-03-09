@@ -13,6 +13,7 @@ in
       command_timeout = 1200;
 
       format = lib.concatStrings [
+        "$custom"
         "$directory"
         "$git_branch"
         "$git_status"
@@ -37,10 +38,23 @@ in
         style = "bold yellow";
       };
 
+      custom.home_prefix = {
+        command = "printf '~'";
+        format = "[$output]($style)";
+        shell = [ "sh" ];
+        style = "bold green";
+        when = ''
+          case "$PWD" in
+            "$HOME" | "$HOME"/*) true ;;
+            *) false ;;
+          esac
+        '';
+      };
+
       directory = {
         format = "[$path]($style) ";
         style = "bold green";
-        home_symbol = "~";
+        home_symbol = "";
         truncation_length = 3;
         truncate_to_repo = false;
       };

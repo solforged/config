@@ -150,15 +150,16 @@ in
 
         (lib.mkOrder 1000 ''
           if (( $+commands[eza] )); then
-            alias ls='eza --icons'
-            alias l='eza -lbFa --git --icons'
-            alias ll='eza -lbGFa --git --icons'
-            alias la='eza -lbhHigUmuSa --git --color-scale --icons'
-            alias ltr='eza -lbGd --git --sort=modified --icons'
-            alias llm='eza --all --header --long --sort=modified --git --icons'
-            alias lx='eza -lbhHigUmuSa@ --git --color-scale --icons'
-            alias lS='eza -1 --icons'
-            alias lt='eza --tree --level=2 --icons'
+            alias ls='eza --classify=always --group-directories-first --icons=auto'
+            alias l='eza --all --binary --classify=always --git --group-directories-first --header --icons=auto --long'
+            alias ll='eza --binary --classify=always --git --group-directories-first --icons=auto --long'
+            alias la='eza --all --binary --classify=always --git --group-directories-first --icons=auto --long'
+            alias lla='eza --all --binary --classify=always --git --group-directories-first --icons=auto --long'
+            alias ltr='eza --binary --classify=always --git --group-directories-first --icons=auto --long --sort=modified --treat-dirs-as-files'
+            alias llm='eza --all --classify=always --git --group-directories-first --header --icons=auto --long --sort=modified'
+            alias lx='eza --accessed --all --binary --blocksize --classify=always --color-scale=all --created --extended --git --group --group-directories-first --header --icons=auto --inode --links --long --modified'
+            alias lS='eza --classify=always --group-directories-first --icons=auto --oneline'
+            alias lt='eza --classify=always --icons=auto --level=2 --tree'
           else
             alias ll='ls -al'
           fi
@@ -174,7 +175,7 @@ in
 
         (lib.mkOrder 1160 ''
           if (( $+commands[eza] )); then
-            compdef _eza ls l ll la ltr llm lx lS lt
+            compdef _eza ls l ll la lla ltr llm lx lS lt
           fi
         '')
 
