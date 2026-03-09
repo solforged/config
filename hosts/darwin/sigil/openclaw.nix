@@ -10,6 +10,7 @@ let
   openclawStateDir = "${config.xdg.stateHome}/openclaw";
   openclawOAuthDir = "${openclawStateDir}/credentials";
   openclawWorkspaceDir = "${config.xdg.dataHome}/openclaw/workspace";
+  installBin = lib.getExe' pkgs.coreutils "install";
 in
 {
   home.activation.prepareOpenclawConfig = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
@@ -62,6 +63,18 @@ in
       key="$(${lib.getExe' pkgs.coreutils "cat"} "${secretDir}/brave-api-key")"
       /bin/launchctl setenv BRAVE_API_KEY "$key"
     fi
+  '';
+
+  home.activation.materializeOpenclawBootstrapDocs = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    /bin/mkdir -p "${openclawWorkspaceDir}"
+
+    # OpenClaw bootstrap guards reject workspace symlinks that resolve outside
+    # the workspace root, so keep the Nix-managed persona docs as plain files.
+    for name in AGENTS.md SOUL.md TOOLS.md IDENTITY.md; do
+      target="${openclawWorkspaceDir}/$name"
+      run rm -f "$target"
+      "${installBin}" -m 0644 "${documentsDir}/$name" "$target"
+    done
   '';
 
   programs.openclaw = {

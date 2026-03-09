@@ -233,6 +233,10 @@ interfaces.
 
 - Checked-in OpenClaw documents live in
   [config/openclaw/documents](/Users/admin/.local/share/dotfiles/config/openclaw/documents).
+- The Nix-managed bootstrap docs (`AGENTS.md`, `SOUL.md`, `TOOLS.md`,
+  `IDENTITY.md`) are copied into the live workspace as regular files during
+  activation because OpenClaw ignores workspace symlinks that resolve outside
+  the workspace root.
 - Host-scoped OpenClaw secrets decrypt to
   `$XDG_STATE_HOME/dotfiles/secrets/openclaw` on `sigil`.
 - The host module is

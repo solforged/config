@@ -67,7 +67,7 @@
         ];
 
         homebrew.casks = [
-          "tailscale"
+          "tailscale-app"
         ];
 
         homebrew.masApps = {
