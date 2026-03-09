@@ -13,19 +13,30 @@ let
 in
 {
   home.activation.prepareOpenclawConfig = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
-    if [ -f "${openclawStateDir}/openclaw.json" ] && [ ! -L "${openclawStateDir}/openclaw.json" ]; then
+    configPath="${openclawStateDir}/openclaw.json"
+
+    if [ -L "$configPath" ]; then
+      linkTarget="$(readlink "$configPath" || true)"
+      case "$linkTarget" in
+        /nix/store/*-openclaw-*.json|/nix/store/*-openclaw-default.json)
+          run rm "$configPath"
+          ;;
+      esac
+    elif [ -f "$configPath" ]; then
       timestamp="$(${lib.getExe' pkgs.coreutils "date"} +%Y%m%d-%H%M%S)"
-      backupPath="${openclawStateDir}/openclaw.json.runtime-$timestamp"
+      backupPath="$configPath.runtime-$timestamp"
       suffix=0
 
       while [ -e "$backupPath" ]; do
         suffix=$((suffix + 1))
-        backupPath="${openclawStateDir}/openclaw.json.runtime-$timestamp.$suffix"
+        backupPath="$configPath.runtime-$timestamp.$suffix"
       done
 
-      run /bin/mv "${openclawStateDir}/openclaw.json" "$backupPath"
+      run /bin/mv "$configPath" "$backupPath"
     fi
   '';
+
+  home.activation.openclawConfigFiles = lib.mkForce (lib.hm.dag.entryAfter [ "openclawDirs" ] "");
 
   home.sessionVariables = {
     OPENCLAW_STATE_DIR = openclawStateDir;
@@ -43,6 +54,13 @@ in
     if [ -f "${secretDir}/gateway-token" ]; then
       token="$(${lib.getExe' pkgs.coreutils "cat"} "${secretDir}/gateway-token")"
       /bin/launchctl setenv OPENCLAW_GATEWAY_TOKEN "$token"
+    fi
+  '';
+
+  home.activation.ensureOpenclawBraveApiKeyEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    if [ -f "${secretDir}/brave-api-key" ]; then
+      key="$(${lib.getExe' pkgs.coreutils "cat"} "${secretDir}/brave-api-key")"
+      /bin/launchctl setenv BRAVE_API_KEY "$key"
     fi
   '';
 
@@ -66,10 +84,6 @@ in
           gatewaytoken = {
             source = "env";
           };
-        };
-
-        env.vars = {
-          OPENAI_API_KEY = "${secretDir}/openai-api-key";
         };
 
         gateway = {
@@ -101,6 +115,27 @@ in
 
         agents.defaults.model = {
           primary = "openai-codex/gpt-5.4";
+        };
+
+        tools.web.search = {
+          enabled = true;
+          provider = "brave";
+          apiKey = {
+            source = "env";
+            provider = "default";
+            id = "BRAVE_API_KEY";
+          };
+        };
+
+        # Keep chat on Codex OAuth, but run semantic memory embeddings locally.
+        agents.defaults.memorySearch = {
+          provider = "local";
+          fallback = "none";
+          local = {
+            modelPath = "hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf";
+            modelCacheDir = "${openclawStateDir}/models";
+          };
+          sync.watch = true;
         };
       };
       launchd.enable = true;

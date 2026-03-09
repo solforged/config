@@ -244,6 +244,7 @@ interfaces.
 Create or refresh the encrypted secret files with:
 
 ```sh
+./bin/rig secrets edit hosts/sigil/openclaw/brave-api-key
 ./bin/rig secrets edit hosts/sigil/openclaw/openai-api-key
 ./bin/rig secrets edit hosts/sigil/openclaw/telegram-bot-token
 ./bin/rig secrets edit hosts/sigil/openclaw/gateway-token
@@ -288,6 +289,47 @@ Manual smoke test after `./bin/rig switch sigil`:
   `$XDG_DATA_HOME/openclaw/workspace`
 - send one Telegram message from an allowed account and confirm one OpenAI-backed
   response succeeds
+
+## AI CLIs
+
+The `development` profile now installs three local AI CLIs through Nix:
+
+- `claude` via `pkgs.claude-code`
+- `gemini` via `pkgs.gemini-cli`
+- `codex` via `pkgs.codex`
+
+Authentication is intended to stay interactive and account-backed rather than
+committed as secrets:
+
+- Claude Code stores its user config under `$XDG_DATA_HOME/claude` via
+  `CLAUDE_CONFIG_DIR`, and Home Manager also links `~/.claude` there for
+  compatibility. On first activation, if no user settings file exists, Home
+  Manager initializes it with `forceLoginMethod = "claudeai"` so `claude`
+  prefers the consumer Claude.ai login flow.
+- Gemini CLI keeps its user settings in `~/.gemini/settings.json` upstream, so
+  Home Manager links `~/.gemini` to `$XDG_DATA_HOME/gemini` to keep the writable
+  state out of `$HOME`.
+- Codex already uses `$CODEX_HOME`, which is set to `$XDG_DATA_HOME/codex` in
+  the shared Home Manager base module.
+
+After switching a host with the `development` profile, run each CLI once and
+complete the browser login flow:
+
+```sh
+claude
+gemini
+codex
+```
+
+Use the consumer login options:
+
+- `claude`: sign in with Claude.ai
+- `gemini`: choose `Login with Google`
+- `codex`: choose `Sign in with ChatGPT`
+
+No encrypted secret files are required for those consumer flows. If you later
+want API-key auth for any of them, keep the key in your normal local secret
+overrides instead of committing it into the repo.
 
 ## Local-only overrides
 

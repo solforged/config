@@ -31,6 +31,7 @@ in
     { config, lib, ... }:
     {
       imports = [
+        ./ai.nix
         ./dock.nix
         ./fish.nix
         ./git.nix
@@ -105,9 +106,14 @@ in
       home.file.".config/nix-darwin/README.md".text = ''
         Local-only overrides belong outside the flake.
         Common examples:
+          $XDG_DATA_HOME/claude
+          $XDG_DATA_HOME/codex
+          $XDG_DATA_HOME/gemini
           $XDG_STATE_HOME/dotfiles/secrets
+          ~/.claude
           ~/.config/fish/local.fish
           ~/.config/git/local.inc
+          ~/.gemini
           ~/.config/nushell/local.nu
           ~/.config/zsh/local.zsh
           ~/.ssh/config.local
