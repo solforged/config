@@ -733,10 +733,10 @@ do_build() {
 
   case "$kind" in
     darwin)
-      exec nix_cmd build ".#darwinConfigurations.$host.system"
+      nix_cmd build ".#darwinConfigurations.$host.system"
       ;;
     nixos)
-      exec nix_cmd build ".#nixosConfigurations.$host.config.system.build.toplevel"
+      nix_cmd build ".#nixosConfigurations.$host.config.system.build.toplevel"
       ;;
     *)
       die "unsupported host kind: $kind"
@@ -774,21 +774,33 @@ do_check() {
   require_command nix
   ensure_not_root
   cd "$repo_root"
-  exec nix_cmd flake check
+  nix_cmd flake check
 }
 
 do_update() {
   require_command nix
   ensure_not_root
   cd "$repo_root"
-  exec nix_cmd flake update
+  nix_cmd flake update
 }
 
 do_fmt() {
   require_command nix
+  require_command git
   ensure_not_root
   cd "$repo_root"
-  exec nix_cmd fmt
+
+  old_ifs=$IFS
+  IFS='
+'
+  set -- $(git ls-files '*.nix')
+  IFS=$old_ifs
+
+  if [ "$#" -eq 0 ]; then
+    return 0
+  fi
+
+  nix_cmd fmt "$@"
 }
 
 do_update_switch() {
