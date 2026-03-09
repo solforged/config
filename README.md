@@ -38,7 +38,7 @@ For a fresh macOS bootstrap:
    ```
 
 2. Do not run `sudo nix run ...` from this repo. Evaluating the flake as root
-   can cause `HOME=/var/root` issues during the initial switch.
+   can cause `HOME=/var/root` issues during the initial activation.
 
 3. Use the wrapper for first-run bootstrap:
 
@@ -67,7 +67,7 @@ sudo ./result/sw/bin/darwin-rebuild switch --flake .#atlas
 After the first activation, the normal workflow is:
 
 ```sh
-./bin/rig switch
+./bin/rig deploy
 ```
 
 ## Common workflows
@@ -96,7 +96,7 @@ nix build .#darwinConfigurations.atlas.system
 nix build .#darwinConfigurations.sigil.system
 ```
 
-### Apply configuration changes
+### Deploy configuration changes
 
 Build without activating:
 
@@ -104,16 +104,16 @@ Build without activating:
 ./bin/rig build
 ```
 
-Switch the current machine:
+Deploy the current machine:
 
 ```sh
-./bin/rig switch
+./bin/rig deploy
 ```
 
-Switch an explicit host:
+Deploy an explicit host:
 
 ```sh
-./bin/rig switch sigil
+./bin/rig deploy sigil
 ```
 
 ### Update flake inputs
@@ -126,7 +126,7 @@ Switch an explicit host:
 Or update and apply in one step:
 
 ```sh
-./bin/rig update-switch
+./bin/rig deploy --update
 ```
 
 ### Work with secrets
@@ -158,8 +158,10 @@ The tracked pre-commit hook runs the same plaintext scan used by
 - `hosts/`: machine definitions grouped by platform
 - `profiles/`: reusable persona and capability bundles
 - `modules/`: shared, platform, and Home Manager modules
-- `config/`: checked-in application config mounted by Home Manager
-- `bin/rig`: wrapper for build, switch, check, format, update, and secrets flows
+- `config/`: shared checked-in application config mounted by Home Manager
+  while domain-owned assets such as the Emacs literate config and music
+  OpenClaw skill live next to the modules that consume them
+- `bin/rig`: wrapper for build, deploy, check, format, update, and secrets flows
 - `pkgs/`, `overlays/`: custom packages and overlays
 - `secrets/`: encrypted files safe to commit
 
@@ -185,11 +187,11 @@ Current profile usage:
 
 Profile files add reusable capability slices. A few examples:
 
-- [profiles/base.nix](/Users/admin/.local/share/dotfiles/profiles/base.nix):
+- [profiles/base/default.nix](/Users/admin/.local/share/dotfiles/profiles/base/default.nix):
   common CLI packages
-- [profiles/development.nix](/Users/admin/.local/share/dotfiles/profiles/development.nix):
+- [profiles/development/default.nix](/Users/admin/.local/share/dotfiles/profiles/development/default.nix):
   development-specific tooling and configuration
-- [profiles/personal.nix](/Users/admin/.local/share/dotfiles/profiles/personal.nix):
+- [profiles/personal/default.nix](/Users/admin/.local/share/dotfiles/profiles/personal/default.nix):
   personal packages and GUI apps
 
 When adding behavior that should apply to more than one host, prefer a profile
@@ -218,7 +220,7 @@ If `XDG_STATE_HOME` is unset, `rig` falls back to:
 $HOME/.local/state/dotfiles/secrets
 ```
 
-`rig switch` and `rig update-switch` automatically refresh decrypted secrets
+`rig deploy` and `rig deploy --update` automatically refresh decrypted secrets
 before they build.
 
 For recipients, import/edit flows, rekeying, and file layout details, see
@@ -232,7 +234,7 @@ tailnet through Tailscale `serve`, so it never has to listen on LAN or public
 interfaces.
 
 - Checked-in OpenClaw documents live in
-  [config/openclaw/documents](/Users/admin/.local/share/dotfiles/config/openclaw/documents).
+  [hosts/darwin/sigil/openclaw/documents](/Users/admin/.local/share/dotfiles/hosts/darwin/sigil/openclaw/documents).
 - The Nix-managed bootstrap docs (`AGENTS.md`, `SOUL.md`, `TOOLS.md`,
   `IDENTITY.md`) are copied into the live workspace as regular files during
   activation because OpenClaw ignores workspace symlinks that resolve outside
@@ -240,7 +242,7 @@ interfaces.
 - Host-scoped OpenClaw secrets decrypt to
   `$XDG_STATE_HOME/dotfiles/secrets/openclaw` on `sigil`.
 - The host module is
-  [hosts/darwin/sigil/openclaw.nix](/Users/admin/.local/share/dotfiles/hosts/darwin/sigil/openclaw.nix).
+  [hosts/darwin/sigil/services/openclaw.nix](/Users/admin/.local/share/dotfiles/hosts/darwin/sigil/services/openclaw.nix).
 - Keep identifying or environment-specific OpenClaw files local in the
   workspace instead of committing them. Typical local-only files are
   `USER.md`, research-profile notes, and detailed `TOOLS.md` content.
@@ -261,7 +263,7 @@ Tailscale on `sigil` is managed as a host-specific dependency:
   shell use
 - OpenClaw keeps token auth enabled even on the tailnet
 
-One-time bootstrap after `./bin/rig switch sigil`:
+One-time bootstrap after `./bin/rig deploy sigil`:
 
 ```sh
 open -a Tailscale
@@ -284,7 +286,7 @@ Host-specific validation and rollout:
 ./bin/rig build sigil
 ```
 
-Manual smoke test after `./bin/rig switch sigil`:
+Manual smoke test after `./bin/rig deploy sigil`:
 
 - confirm the launchd agent is loaded:
   `launchctl print gui/$UID/com.steipete.openclaw.gateway | grep state`
@@ -299,8 +301,29 @@ Manual smoke test after `./bin/rig switch sigil`:
   response succeeds
 - `sigil` intentionally keeps the OpenClaw model config on OpenAI only; the
   Claude and Gemini fallback entries in
-  [hosts/darwin/sigil/openclaw.nix](/Users/admin/.local/share/dotfiles/hosts/darwin/sigil/openclaw.nix)
+  [hosts/darwin/sigil/services/openclaw.nix](/Users/admin/.local/share/dotfiles/hosts/darwin/sigil/services/openclaw.nix)
   are commented out
+
+## Music foundation on sigil
+
+`sigil` now includes a small music-management foundation that keeps OpenClaw as
+an optional client instead of the system of record.
+
+- The Home Manager module owns `musicctl`, default config rendering, package
+  installation, and local state directories.
+- `musicctl` reads defaults from
+  `~/.config/musicctl/config.json` and optionally merges personal overrides from
+  `~/.config/musicctl/local.json`.
+- The initial surface is read-only and `beets`-first:
+  `musicctl doctor`, `musicctl library stats`, `musicctl library search`,
+  `musicctl library recent`, `musicctl library duplicates`,
+  `musicctl library inspect`, and `musicctl roon doctor`.
+- `Roon` support is bootstrap-only for now. `musicctl roon doctor` validates
+  local assumptions but does not automate `roon-tui`.
+- The OpenClaw skill under
+  [modules/home/media/music/openclaw-plugin](/Users/admin/.local/share/dotfiles/modules/home/media/music/openclaw-plugin)
+  calls `musicctl` only. It does not import, retag, move files, or control
+  playback.
 
 ## AI CLIs
 
@@ -312,7 +335,7 @@ Claude and Gemini integration is disabled globally for now. Codex already uses
 `$CODEX_HOME`, which is set to `$XDG_DATA_HOME/codex` in the shared Home
 Manager base module.
 
-After switching a host with the `development` profile, run Codex once and
+After deploying a host with the `development` profile, run Codex once and
 complete the browser login flow:
 
 ```sh
@@ -323,6 +346,39 @@ codex
 No encrypted secret files are required for that consumer flow. If you later
 want API-key auth, keep the key in your normal local secret overrides instead
 of committing it into the repo.
+
+Development hosts also enable `dotfiles.ai.enable`, which installs a small
+Codex-first helper layer:
+
+- `codex-here`: start `codex` from the current git root, or the current
+  directory when outside a repo
+- `codex-resume`: resume the most recent Codex session in the current git root
+  by default, or pass the normal `codex resume` arguments explicitly
+- `openclaw-remote`: print the configured `dotfiles.ai.openclawRemoteUrl`, or
+  open it with `--open`
+
+If `dotfiles.ai.openclawRemoteUrl` is set for a host, Home Manager also exports
+`OPENCLAW_REMOTE_URL` for shell use. `sigil` sets it to its Tailscale-served
+OpenClaw URL.
+
+## Neovim Workflow
+
+The shared Nixvim config keeps the language setup intentionally small, but now
+adds project-workflow commands on top:
+
+- `<leader>qs`: save a session for the current project root
+- `<leader>qr`: restore the saved session for the current project root
+- `<leader>tt`: toggle the floating project terminal
+- `<leader>pr`: prompt for a command to run from the current git root
+- `<leader>pR`: rerun the last project command in the current Neovim session
+- `<leader>xx`: toggle the diagnostics view
+- `<leader>xq`: toggle the quickfix list in Trouble
+- `<leader>xo`: toggle the built-in quickfix window
+- `[q` and `]q`: jump between quickfix entries
+
+Project commands resolve the current git root with `git rev-parse
+--show-toplevel` and fall back to the current working directory when not in a
+repo.
 
 ## Local-only overrides
 
@@ -372,14 +428,14 @@ Missing age identity during bootstrap:
 
 Fresh-machine host naming on the laptop:
 
-- use `atlas` explicitly on the first switch
+- use `atlas` explicitly on the first deploy
 - after activation renames the machine to `atlas`, normal host auto-detection
   works
 
 Current upstream noise:
 
 - Home Manager and nix-darwin may emit an `options.json` warning about
-  `builtins.derivation` context; it does not currently block builds or switches
+  `builtins.derivation` context; it does not currently block builds or deploys
 - Determinate-managed Nix settings on macOS are configured through the
   Determinate nix-darwin module rather than manual edits to
   `/etc/nix/nix.custom.conf`
@@ -389,15 +445,16 @@ Current upstream noise:
 ```sh
 ./bin/rig host
 ./bin/rig hosts
+./bin/rig help deploy
 ./bin/rig bootstrap sigil
 ./bin/rig build
 ./bin/rig build atlas
 ./bin/rig build sigil
-./bin/rig switch
+./bin/rig deploy
 ./bin/rig fmt
 ./bin/rig check
 ./bin/rig update
-./bin/rig update-switch
+./bin/rig deploy --update
 ./bin/rig secrets decrypt
 ./bin/rig secrets edit shared/git/config.inc
 ./bin/rig secrets import ~/.ssh/sigil hosts/sigil/ssh/sigil
