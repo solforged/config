@@ -227,7 +227,9 @@ For recipients, import/edit flows, rekeying, and file layout details, see
 ## OpenClaw on sigil
 
 `sigil` includes a host-specific OpenClaw setup managed through Home Manager
-and `nix-openclaw`.
+and `nix-openclaw`. The gateway stays bound to loopback and is published to the
+tailnet through Tailscale `serve`, so it never has to listen on LAN or public
+interfaces.
 
 - Checked-in OpenClaw documents live in
   [config/openclaw/documents](/Users/admin/.local/share/dotfiles/config/openclaw/documents).
@@ -247,6 +249,24 @@ Create or refresh the encrypted secret files with:
 ./bin/rig secrets edit hosts/sigil/openclaw/gateway-token
 ```
 
+Tailscale on `sigil` is managed as a host-specific dependency:
+
+- the macOS app is installed via Homebrew cask
+- the `tailscale` CLI is installed in the system profile for OpenClaw and
+  shell use
+- OpenClaw keeps token auth enabled even on the tailnet
+
+One-time bootstrap after `./bin/rig switch sigil`:
+
+```sh
+open -a Tailscale
+tailscale status
+```
+
+Sign in through the Tailscale UI, approve the machine into the correct tailnet,
+and leave MagicDNS enabled. After that, OpenClaw can publish privately through
+`tailscale serve` without exposing the gateway beyond the tailnet.
+
 Host-specific validation and rollout:
 
 ```sh
@@ -259,6 +279,9 @@ Manual smoke test after `./bin/rig switch sigil`:
 
 - confirm the launchd agent is loaded:
   `launchctl print gui/$UID/com.steipete.openclaw.gateway | grep state`
+- confirm Tailscale is connected and serving the gateway privately:
+  `tailscale status`
+  `tailscale serve status`
 - tail the gateway log:
   `tail -50 /tmp/openclaw/openclaw-gateway.log`
 - verify the documents are symlinked under

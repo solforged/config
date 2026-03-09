@@ -52,6 +52,14 @@
           touchIdSudo.enable = true;
           capsToCtrl.enable = true;
         };
+
+        packages.system = [
+          inputs.nixpkgs.legacyPackages.aarch64-darwin.tailscale
+        ];
+
+        homebrew.casks = [
+          "tailscale"
+        ];
       };
     };
 }

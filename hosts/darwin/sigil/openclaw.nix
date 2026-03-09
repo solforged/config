@@ -24,6 +24,13 @@ in
     /bin/chmod 700 "${openclawOAuthDir}"
   '';
 
+  home.activation.ensureOpenclawGatewayTokenEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    if [ -f "${secretDir}/gateway-token" ]; then
+      token="$(${lib.getExe' pkgs.coreutils "cat"} "${secretDir}/gateway-token")"
+      /bin/launchctl setenv OPENCLAW_GATEWAY_TOKEN "$token"
+    fi
+  '';
+
   programs.openclaw = {
     documents = documentsDir;
     package = pkgs.openclaw-gateway;
@@ -32,54 +39,60 @@ in
     workspaceDir = openclawWorkspaceDir;
 
     bundledPlugins = {
-      summarize.enable = true;
-      peekaboo.enable = true;
       goplaces.enable = false;
-    };
-
-    config = {
-      secrets.providers = {
-        gatewayToken = {
-          source = "file";
-          path = "${secretDir}/gateway-token";
-          mode = "singleValue";
-        };
-      };
-
-      env.vars = {
-        OPENAI_API_KEY = "${secretDir}/openai-api-key";
-      };
-
-      gateway = {
-        mode = "local";
-        auth = {
-          token = {
-            source = "file";
-            provider = "gatewayToken";
-            id = "value";
-          };
-        };
-      };
-
-      channels.telegram = {
-        tokenFile = "${secretDir}/telegram-bot-token";
-        allowFrom = [
-          8190147609
-        ];
-        groups."*" = {
-          requireMention = true;
-        };
-      };
     };
 
     instances.default = {
       enable = true;
       stateDir = openclawStateDir;
       workspaceDir = openclawWorkspaceDir;
+      config = {
+        secrets.providers = {
+          gatewaytoken = {
+            source = "env";
+          };
+        };
+
+        env.vars = {
+          OPENAI_API_KEY = "${secretDir}/openai-api-key";
+        };
+
+        gateway = {
+          mode = "local";
+          bind = "loopback";
+          auth = {
+            mode = "token";
+            token = {
+              source = "env";
+              provider = "gatewaytoken";
+              id = "OPENCLAW_GATEWAY_TOKEN";
+            };
+          };
+          tailscale = {
+            mode = "serve";
+            resetOnExit = true;
+          };
+        };
+
+        channels.telegram = {
+          tokenFile = "${secretDir}/telegram-bot-token";
+          allowFrom = [
+            8190147609
+          ];
+          groups."*" = {
+            requireMention = true;
+          };
+        };
+
+        agents.defaults.model = {
+          primary = "openai-codex/gpt-5.4";
+        };
+      };
       launchd.enable = true;
       appDefaults = {
-        enable = false;
+        enable = true;
         attachExistingOnly = true;
+        nixMode = true;
       };
     };
   };
