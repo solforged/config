@@ -27,6 +27,7 @@ let
   tailscaleBin = lib.getExe' pkgs.tailscale "tailscale";
   tailscaleHostName = "sigil";
   tailscaleMagicDnsName = "${tailscaleHostName}.ussuri-alphard.ts.net";
+  telegramOwnerId = 7703164198;
 in
 {
   home.activation.prepareOpenclawConfig = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
@@ -110,6 +111,11 @@ in
     )}
   '';
 
+  programs.zsh.shellAliases = {
+    # Prefer the loopback dashboard on sigil; keep the Tailscale URL for remote access.
+    ocd = "openclaw dashboard";
+  };
+
   programs.openclaw = {
     documents = documentsDir;
     package = pkgs.openclaw-gateway;
@@ -135,6 +141,16 @@ in
         gateway = {
           mode = "local";
           bind = "loopback";
+          # Tailscale Serve reaches the loopback-bound gateway through a local proxy.
+          trustedProxies = [
+            "127.0.0.1"
+            "::1"
+          ];
+          controlUi.allowedOrigins = [
+            "http://127.0.0.1:18789"
+            "http://localhost:18789"
+            "https://${tailscaleMagicDnsName}"
+          ];
           auth = {
             mode = "token";
             token = {
@@ -146,15 +162,20 @@ in
           tailscale = {
             # OpenClaw reads the node's MagicDNS name from `tailscale status --json`.
             mode = "serve";
-            resetOnExit = true;
+            resetOnExit = false;
           };
         };
 
         channels.telegram = {
           tokenFile = "${secretDir}/telegram-bot-token";
           allowFrom = [
-            8190147609
+            telegramOwnerId
           ];
+          # Telegram group senders are authorized separately from DMs/pairing.
+          groupAllowFrom = [
+            telegramOwnerId
+          ];
+          groupPolicy = "allowlist";
           groups."*" = {
             requireMention = true;
           };
@@ -163,8 +184,9 @@ in
         agents.defaults.model = {
           primary = "openai-codex/gpt-5.4";
           fallbacks = [
-            "anthropic/claude-opus-4-6"
-            "google-gemini-cli/gemini-3.1-pro"
+            # Keep the non-OpenAI fallbacks disabled on sigil for now.
+            # "anthropic/claude-opus-4-6"
+            # "google-gemini-cli/gemini-3.1-pro"
           ];
         };
 

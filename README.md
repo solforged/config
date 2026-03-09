@@ -297,47 +297,32 @@ Manual smoke test after `./bin/rig switch sigil`:
   `$XDG_DATA_HOME/openclaw/workspace`
 - send one Telegram message from an allowed account and confirm one OpenAI-backed
   response succeeds
+- `sigil` intentionally keeps the OpenClaw model config on OpenAI only; the
+  Claude and Gemini fallback entries in
+  [hosts/darwin/sigil/openclaw.nix](/Users/admin/.local/share/dotfiles/hosts/darwin/sigil/openclaw.nix)
+  are commented out
 
 ## AI CLIs
 
-The `development` profile now installs three local AI CLIs through Nix:
+The `development` profile currently installs only the OpenAI CLI:
 
-- `claude` via `pkgs.claude-code`
-- `gemini` via `pkgs.gemini-cli`
 - `codex` via `pkgs.codex`
 
-Authentication is intended to stay interactive and account-backed rather than
-committed as secrets:
+Claude and Gemini integration is disabled globally for now. Codex already uses
+`$CODEX_HOME`, which is set to `$XDG_DATA_HOME/codex` in the shared Home
+Manager base module.
 
-- Claude Code stores its user config under `$XDG_DATA_HOME/claude` via
-  `CLAUDE_CONFIG_DIR`, and Home Manager also links `~/.claude` there for
-  compatibility. On first activation, if no user settings file exists, Home
-  Manager initializes it with `forceLoginMethod = "claudeai"` so `claude`
-  prefers the consumer Claude.ai login flow.
-- Gemini CLI keeps its user settings in `~/.gemini/settings.json` upstream, so
-  Home Manager links `~/.gemini` to `$XDG_DATA_HOME/gemini` to keep the writable
-  state out of `$HOME`.
-- Codex already uses `$CODEX_HOME`, which is set to `$XDG_DATA_HOME/codex` in
-  the shared Home Manager base module.
-
-After switching a host with the `development` profile, run each CLI once and
+After switching a host with the `development` profile, run Codex once and
 complete the browser login flow:
 
 ```sh
-claude
-gemini
 codex
 ```
-
-Use the consumer login options:
-
-- `claude`: sign in with Claude.ai
-- `gemini`: choose `Login with Google`
 - `codex`: choose `Sign in with ChatGPT`
 
-No encrypted secret files are required for those consumer flows. If you later
-want API-key auth for any of them, keep the key in your normal local secret
-overrides instead of committing it into the repo.
+No encrypted secret files are required for that consumer flow. If you later
+want API-key auth, keep the key in your normal local secret overrides instead
+of committing it into the repo.
 
 ## Local-only overrides
 
