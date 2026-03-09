@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   documentsDir = ../../../config/openclaw/documents;
   secretDir = "${config.xdg.stateHome}/dotfiles/secrets/openclaw";

@@ -10,4 +10,3 @@ in
     xdg.configFile."zsh".recursive = true;
   };
 }
-

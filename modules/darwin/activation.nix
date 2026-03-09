@@ -7,13 +7,13 @@ in
   config = lib.mkIf isDarwin {
     system.activationScripts.postActivation.text = lib.mkAfter ''
       ${lib.optionalString cfg.features.touchIdSudo.enable ''
-        pam_sudo_file="/etc/pam.d/sudo"
-        pam_touch_id_line="auth       sufficient     pam_tid.so"
+          pam_sudo_file="/etc/pam.d/sudo"
+          pam_touch_id_line="auth       sufficient     pam_tid.so"
 
-        if ! /usr/bin/grep -Fqx "$pam_touch_id_line" "$pam_sudo_file"; then
-          /usr/bin/sed -i.bak "1s|^|$pam_touch_id_line\\
-      |" "$pam_sudo_file"
-        fi
+          if ! /usr/bin/grep -Fqx "$pam_touch_id_line" "$pam_sudo_file"; then
+            /usr/bin/sed -i.bak "1s|^|$pam_touch_id_line\\
+        |" "$pam_sudo_file"
+          fi
       ''}
 
       ${lib.optionalString cfg.features.capsToCtrl.enable ''

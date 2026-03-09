@@ -8,4 +8,3 @@ in
     # package overlays here once you have a concrete work host to model.
   };
 }
-
