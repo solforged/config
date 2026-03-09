@@ -16,7 +16,6 @@ let
   ]
   ++ lib.optionals (cfg.apps.shell == "fish") [ pkgs.fish ]
   ++ lib.optionals (cfg.apps.shell == "nushell") [ pkgs.nushell ]
-  ++ lib.optionals (cfg.apps.editor == "nvim") [ pkgs.neovim ]
   ++ lib.optionals (cfg.apps.editor == "emacs") [ pkgs.emacs ];
 in
 {
@@ -35,6 +34,7 @@ in
     in
     {
       imports = [
+        inputs.nixvim.homeModules.nixvim
         ./ai.nix
         ./dock.nix
         ./fish.nix
