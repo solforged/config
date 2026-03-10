@@ -1,0 +1,43 @@
+#+title: org
+#+property: header-args:emacs-lisp :comments no :results none
+
+* org
+
+#+begin_src emacs-lisp
+(require 'org)
+(require 'mixed-pitch)
+
+(setq org-directory dotfiles/org-directory
+      org-agenda-files (list org-directory)
+      org-default-notes-file (expand-file-name "inbox.org" org-directory)
+      org-hide-emphasis-markers t
+      org-log-done 'time
+      org-return-follows-link t
+      org-startup-indented t
+      org-use-speed-commands t)
+
+(setq org-capture-templates
+      '(("t" "todo" entry
+         (file+headline org-default-notes-file "Tasks")
+         "* TODO %?\n:PROPERTIES:\n:CREATED: %U\n:END:\n")
+        ("n" "note" entry
+         (file+headline org-default-notes-file "Notes")
+         "* %U %?\n")))
+
+(set-face-attribute 'org-block nil :inherit '(fixed-pitch))
+(set-face-attribute 'org-code nil :inherit '(shadow fixed-pitch))
+(set-face-attribute 'org-document-info-keyword nil :inherit '(shadow fixed-pitch))
+(set-face-attribute 'org-meta-line nil :inherit '(font-lock-comment-face fixed-pitch))
+(set-face-attribute 'org-property-value nil :inherit '(fixed-pitch))
+(set-face-attribute 'org-special-keyword nil :inherit '(font-lock-comment-face fixed-pitch))
+(set-face-attribute 'org-table nil :inherit '(fixed-pitch))
+(set-face-attribute 'org-tag nil :inherit '(shadow fixed-pitch) :weight 'semibold)
+(set-face-attribute 'org-verbatim nil :inherit '(shadow fixed-pitch))
+
+(add-hook 'org-mode-hook #'org-indent-mode)
+(add-hook 'org-mode-hook #'mixed-pitch-mode)
+(add-hook 'org-mode-hook #'org-modern-mode)
+(add-hook 'org-mode-hook #'visual-line-mode)
+
+(require 'org-tempo)
+#+end_src

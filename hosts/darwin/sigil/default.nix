@@ -2,11 +2,13 @@
   system = "aarch64-darwin";
 
   module =
-    { inputs, ... }:
+    { inputs, pkgs, ... }:
     {
       nixpkgs.overlays = [
         inputs.nix-openclaw.overlays.default
       ];
+
+      services.openssh.enable = true;
 
       home-manager.sharedModules = [
         inputs.nix-openclaw.homeManagerModules.openclaw
@@ -40,7 +42,7 @@
 
         apps = {
           shell = "zsh";
-          editor = "nvim";
+          editor = "emacs";
           terminal = "ghostty";
           browser = "brave";
           passwordManager = "proton-pass";
@@ -69,8 +71,12 @@
 
         ai.openclawRemoteUrl = "https://sigil.ussuri-alphard.ts.net";
 
+        packages.home = [
+          pkgs.neovim
+        ];
+
         packages.system = [
-          inputs.nixpkgs.legacyPackages.aarch64-darwin.tailscale
+          pkgs.tailscale
         ];
 
         homebrew.casks = [

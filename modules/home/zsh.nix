@@ -98,11 +98,12 @@ in
         oc = "openclaw";
         rb = "rig build";
         rc = "rig check";
+        rd = "rig deploy";
+        rdu = "rig deploy --update";
         rf = "rig fmt";
         rse = "rig secrets edit";
         rsi = "rig secrets import";
         rsk = "rig secrets rekey";
-        rsw = "rig switch";
         tldr = "tldr --config-path ${config.xdg.configHome}/tldr/config.toml";
       };
 

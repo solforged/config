@@ -11,6 +11,11 @@ let
   selectedApps = self.lib.resolveSelectedApps cfg;
   selectedDockApps = lib.flatten [
     (lib.optional (
+      selectedApps.editor != null
+      && selectedApps.editor.dockPath != null
+      && selectedApps.editor.dockPath != ""
+    ) selectedApps.editor.dockPath)
+    (lib.optional (
       selectedApps.browser != null
       && selectedApps.browser.dockPath != null
       && selectedApps.browser.dockPath != ""

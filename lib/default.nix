@@ -22,6 +22,14 @@ let
   ];
 
   appCatalog = {
+    editor = {
+      nvim = null;
+      emacs = {
+        cask = null;
+        dockPath = "$HOME/Applications/Home Manager Apps/Emacs.app";
+      };
+    };
+
     browser = {
       brave = {
         cask = "brave-browser";
@@ -189,6 +197,7 @@ in
   inherit appCatalog;
 
   resolveSelectedApps = cfg: {
+    editor = appCatalog.editor.${cfg.apps.editor};
     browser = appCatalog.browser.${cfg.apps.browser};
     terminal = appCatalog.terminal.${cfg.apps.terminal};
     passwordManager = appCatalog.passwordManager.${cfg.apps.passwordManager};

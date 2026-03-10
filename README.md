@@ -38,7 +38,7 @@ For a fresh macOS bootstrap:
    ```
 
 2. Do not run `sudo nix run ...` from this repo. Evaluating the flake as root
-   can cause `HOME=/var/root` issues during the initial switch.
+   can cause `HOME=/var/root` issues during the initial activation.
 
 3. Use the wrapper for first-run bootstrap:
 
@@ -67,7 +67,7 @@ sudo ./result/sw/bin/darwin-rebuild switch --flake .#atlas
 After the first activation, the normal workflow is:
 
 ```sh
-./bin/rig switch
+./bin/rig deploy
 ```
 
 ## Common workflows
@@ -96,7 +96,7 @@ nix build .#darwinConfigurations.atlas.system
 nix build .#darwinConfigurations.sigil.system
 ```
 
-### Apply configuration changes
+### Deploy configuration changes
 
 Build without activating:
 
@@ -104,16 +104,16 @@ Build without activating:
 ./bin/rig build
 ```
 
-Switch the current machine:
+Deploy the current machine:
 
 ```sh
-./bin/rig switch
+./bin/rig deploy
 ```
 
-Switch an explicit host:
+Deploy an explicit host:
 
 ```sh
-./bin/rig switch sigil
+./bin/rig deploy sigil
 ```
 
 ### Update flake inputs
@@ -126,7 +126,7 @@ Switch an explicit host:
 Or update and apply in one step:
 
 ```sh
-./bin/rig update-switch
+./bin/rig deploy --update
 ```
 
 ### Work with secrets
@@ -159,7 +159,9 @@ The tracked pre-commit hook runs the same plaintext scan used by
 - `profiles/`: reusable persona and capability bundles
 - `modules/`: shared, platform, and Home Manager modules
 - `config/`: checked-in application config mounted by Home Manager
-- `bin/rig`: wrapper for build, switch, check, format, update, and secrets flows
+  including literate Emacs sources under `config/emacs/` that are tangled at
+  build time when a host selects `dotfiles.apps.editor = "emacs"`
+- `bin/rig`: wrapper for build, deploy, check, format, update, and secrets flows
 - `pkgs/`, `overlays/`: custom packages and overlays
 - `secrets/`: encrypted files safe to commit
 
@@ -218,7 +220,7 @@ If `XDG_STATE_HOME` is unset, `rig` falls back to:
 $HOME/.local/state/dotfiles/secrets
 ```
 
-`rig switch` and `rig update-switch` automatically refresh decrypted secrets
+`rig deploy` and `rig deploy --update` automatically refresh decrypted secrets
 before they build.
 
 For recipients, import/edit flows, rekeying, and file layout details, see
@@ -261,7 +263,7 @@ Tailscale on `sigil` is managed as a host-specific dependency:
   shell use
 - OpenClaw keeps token auth enabled even on the tailnet
 
-One-time bootstrap after `./bin/rig switch sigil`:
+One-time bootstrap after `./bin/rig deploy sigil`:
 
 ```sh
 open -a Tailscale
@@ -284,7 +286,7 @@ Host-specific validation and rollout:
 ./bin/rig build sigil
 ```
 
-Manual smoke test after `./bin/rig switch sigil`:
+Manual smoke test after `./bin/rig deploy sigil`:
 
 - confirm the launchd agent is loaded:
   `launchctl print gui/$UID/com.steipete.openclaw.gateway | grep state`
@@ -312,7 +314,7 @@ Claude and Gemini integration is disabled globally for now. Codex already uses
 `$CODEX_HOME`, which is set to `$XDG_DATA_HOME/codex` in the shared Home
 Manager base module.
 
-After switching a host with the `development` profile, run Codex once and
+After deploying a host with the `development` profile, run Codex once and
 complete the browser login flow:
 
 ```sh
@@ -405,14 +407,14 @@ Missing age identity during bootstrap:
 
 Fresh-machine host naming on the laptop:
 
-- use `atlas` explicitly on the first switch
+- use `atlas` explicitly on the first deploy
 - after activation renames the machine to `atlas`, normal host auto-detection
   works
 
 Current upstream noise:
 
 - Home Manager and nix-darwin may emit an `options.json` warning about
-  `builtins.derivation` context; it does not currently block builds or switches
+  `builtins.derivation` context; it does not currently block builds or deploys
 - Determinate-managed Nix settings on macOS are configured through the
   Determinate nix-darwin module rather than manual edits to
   `/etc/nix/nix.custom.conf`
@@ -422,15 +424,16 @@ Current upstream noise:
 ```sh
 ./bin/rig host
 ./bin/rig hosts
+./bin/rig help deploy
 ./bin/rig bootstrap sigil
 ./bin/rig build
 ./bin/rig build atlas
 ./bin/rig build sigil
-./bin/rig switch
+./bin/rig deploy
 ./bin/rig fmt
 ./bin/rig check
 ./bin/rig update
-./bin/rig update-switch
+./bin/rig deploy --update
 ./bin/rig secrets decrypt
 ./bin/rig secrets edit shared/git/config.inc
 ./bin/rig secrets import ~/.ssh/sigil hosts/sigil/ssh/sigil

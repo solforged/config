@@ -1,7 +1,6 @@
 {
   config,
   lib,
-  pkgs,
   inputs,
   self,
   ...
@@ -10,8 +9,6 @@ let
   cfg = config.dotfiles;
 
   editorCommand = if cfg.apps.editor == "emacs" then "emacsclient -c -a emacs" else "nvim";
-
-  selectedPackages = lib.optionals (cfg.apps.editor == "emacs") [ pkgs.emacs ];
 in
 {
   home-manager.useGlobalPkgs = true;
@@ -32,6 +29,7 @@ in
         inputs.nixvim.homeModules.nixvim
         ./ai.nix
         ./dock.nix
+        ./emacs.nix
         ./fish.nix
         ./git.nix
         ./nushell.nix
@@ -48,7 +46,7 @@ in
       home.homeDirectory = cfg.user.home;
       home.stateVersion = cfg.host.homeStateVersion;
 
-      home.packages = lib.unique (cfg.packages.home ++ selectedPackages);
+      home.packages = lib.unique cfg.packages.home;
 
       xdg.enable = true;
 

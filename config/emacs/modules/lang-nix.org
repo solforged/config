@@ -1,0 +1,9 @@
+#+title: nix
+#+property: header-args:emacs-lisp :comments no :results none
+
+* nix
+
+#+begin_src emacs-lisp
+(add-to-list 'eglot-server-programs '(nix-mode . ("nil")))
+(add-hook 'nix-mode-hook #'eglot-ensure)
+#+end_src

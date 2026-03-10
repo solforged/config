@@ -68,5 +68,5 @@ Override that with `AGE_IDENTITIES_FILE` if needed.
 ./bin/rig install-hooks
 ```
 
-`rig switch` and `rig update-switch` automatically refresh decrypted secrets
+`rig deploy` and `rig deploy --update` automatically refresh decrypted secrets
 before they build.

@@ -88,23 +88,100 @@ find_repo_root() {
 
 repo_root="$(find_repo_root)"
 
-usage() {
+usage_main() {
   cat <<'EOF'
+        _
+       ( \
+        \ \
+         \ \
+        / \ \
+       / / \ \
+      / /   \ \
+     /_/     \_\
+
 Usage: rig <command> [args]
 
 Commands:
   bootstrap [host]         First-run decrypt, build, and activate for a host
   build [host]             Build the host system closure
-  switch [host]            Build as the current user, then activate the host
+  deploy [host] [--update] Build and activate the host
   check                    Run flake checks
   fmt                      Format the repository with the flake formatter
   update                   Update flake inputs
-  update-switch [host]     Update inputs, then build and activate the host
   host [host]              Print the detected default host
   hosts                    List known hosts
   secrets <subcommand>     Manage age-encrypted repo secrets
   install-hooks            Configure git to use the tracked pre-commit hook
-  help                     Show this help
+  help [command]           Show help for rig or a command
+
+Examples:
+  rig build
+  rig bootstrap sigil
+  rig deploy
+  rig deploy sigil --update
+  rig fmt
+  rig help deploy
+  RIG_HOST=sigil rig deploy
+  rig secrets decrypt
+  rig secrets edit shared/git/config.inc
+EOF
+}
+
+usage_bootstrap() {
+  cat <<'EOF'
+Usage: rig bootstrap [host]
+
+First-run activation flow for a host.
+
+- Ensures the age identity directory exists
+- Restores the age identity from Proton Pass if needed
+- Refreshes decrypted secrets when the repo has encrypted material
+- Builds and activates the target host
+
+Environment:
+  AGE_IDENTITIES_FILE      Override the age identity file used for decryption
+  DOTFILES_SECRETS_DIR     Override the runtime decrypt directory
+  PROTON_PASS_AGE_IDENTITY_REF  Override the Proton Pass reference used to restore keys.txt
+  RIG_HOST                 Override auto-detected host slug
+
+Examples:
+  rig bootstrap
+  rig bootstrap sigil
+  PROTON_PASS_AGE_IDENTITY_REF=pass://Personal/age-identity/note rig bootstrap sigil
+EOF
+}
+
+usage_deploy() {
+  cat <<'EOF'
+Usage: rig deploy [host] [--update]
+
+Build and activate the target host.
+
+Options:
+  -u, --update             Run `nix flake update` before build and activation
+
+Host resolution:
+  - use the explicit host argument when provided
+  - otherwise use RIG_HOST when set
+  - otherwise auto-detect from the current machine name
+  - otherwise fall back to the single known host when only one exists
+
+Environment:
+  DOTFILES_SECRETS_DIR     Override the runtime decrypt directory
+  RIG_HOST                 Override auto-detected host slug
+
+Examples:
+  rig deploy
+  rig deploy sigil
+  rig deploy --update
+  rig deploy sigil --update
+  RIG_HOST=sigil rig deploy
+EOF
+}
+
+usage_secrets() {
+  cat <<'EOF'
+Usage: rig secrets <subcommand> [args]
 
 Secrets subcommands:
   decrypt [host]           Decrypt shared and host-specific secrets into XDG state
@@ -119,27 +196,269 @@ Secrets subcommands:
 Environment:
   AGE_IDENTITIES_FILE      Override the age identity file used for decryption
   DOTFILES_SECRETS_DIR     Override the runtime decrypt directory
-  PROTON_PASS_AGE_IDENTITY_REF  Override the Proton Pass reference used to restore keys.txt
   RIG_HOST                 Override auto-detected host slug
 
 Examples:
-  rig build
-  rig bootstrap sigil
-  rig switch
-  rig fmt
-  rig update-switch
-  rig build sigil
-  RIG_HOST=sigil rig switch
   rig secrets decrypt
   rig secrets edit shared/git/config.inc
   rig secrets init-host sigil
   rig secrets import ~/.ssh/sigil hosts/sigil/ssh/sigil
-  PROTON_PASS_AGE_IDENTITY_REF=pass://Personal/age-identity/note rig bootstrap sigil
+  rig secrets rekey
+EOF
+}
+
+usage_help() {
+  cat <<'EOF'
+Usage: rig help [command]
+
+Commands with dedicated help:
+  bootstrap
+  deploy
+  secrets
+
+Examples:
+  rig help
+  rig help deploy
+  rig help bootstrap
+  rig help secrets
 EOF
 }
 
 die() {
   printf '%s\n' "error: $*" >&2
+  exit 1
+}
+
+command_list() {
+  cat <<'EOF'
+bootstrap
+build
+deploy
+check
+fmt
+update
+host
+hosts
+secrets
+install-hooks
+help
+EOF
+}
+
+secrets_command_list() {
+  cat <<'EOF'
+decrypt
+decrypt-work
+edit
+import
+init-host
+recipient
+rekey
+scan
+help
+EOF
+}
+
+string_distance() {
+  left="$1"
+  right="$2"
+
+  awk -v left="$left" -v right="$right" '
+    function min3(a, b, c) {
+      min = a
+      if (b < min) {
+        min = b
+      }
+      if (c < min) {
+        min = c
+      }
+      return min
+    }
+
+    function distance(a, b,    i, j, la, lb, cost, deletion, insertion, substitution) {
+      la = length(a)
+      lb = length(b)
+
+      for (j = 0; j <= lb; j++) {
+        prev[j] = j
+      }
+
+      for (i = 1; i <= la; i++) {
+        cur[0] = i
+        for (j = 1; j <= lb; j++) {
+          cost = (substr(a, i, 1) == substr(b, j, 1)) ? 0 : 1
+          deletion = prev[j] + 1
+          insertion = cur[j - 1] + 1
+          substitution = prev[j - 1] + cost
+          cur[j] = min3(deletion, insertion, substitution)
+        }
+
+        for (j = 0; j <= lb; j++) {
+          prev[j] = cur[j]
+        }
+      }
+
+      print prev[lb]
+    }
+
+    BEGIN {
+      distance(left, right)
+    }
+  '
+}
+
+closest_match() {
+  target="$1"
+
+  awk -v target="$target" '
+    function min3(a, b, c) {
+      min = a
+      if (b < min) {
+        min = b
+      }
+      if (c < min) {
+        min = c
+      }
+      return min
+    }
+
+    function distance(a, b,    i, j, la, lb, cost, deletion, insertion, substitution) {
+      la = length(a)
+      lb = length(b)
+
+      for (j = 0; j <= lb; j++) {
+        prev[j] = j
+      }
+
+      for (i = 1; i <= la; i++) {
+        cur[0] = i
+        for (j = 1; j <= lb; j++) {
+          cost = (substr(a, i, 1) == substr(b, j, 1)) ? 0 : 1
+          deletion = prev[j] + 1
+          insertion = cur[j - 1] + 1
+          substitution = prev[j - 1] + cost
+          cur[j] = min3(deletion, insertion, substitution)
+        }
+
+        for (j = 0; j <= lb; j++) {
+          prev[j] = cur[j]
+        }
+      }
+
+      return prev[lb]
+    }
+
+    function shared_prefix(a, b,    i, max_len) {
+      max_len = length(a)
+      if (length(b) < max_len) {
+        max_len = length(b)
+      }
+
+      for (i = 1; i <= max_len; i++) {
+        if (substr(a, i, 1) != substr(b, i, 1)) {
+          return i - 1
+        }
+      }
+
+      return max_len
+    }
+
+    {
+      candidate = $0
+      score = distance(target, candidate)
+      prefix = shared_prefix(target, candidate)
+
+      if (best == "" || score < best_score || (score == best_score && prefix > best_prefix)) {
+        best = candidate
+        best_score = score
+        best_prefix = prefix
+      }
+    }
+
+    END {
+      if (best != "") {
+        print best
+      }
+    }
+  '
+}
+
+removed_command_replacement() {
+  cmd="$1"
+  removed="$(printf '%s\n' switch update-switch | closest_match "$cmd")"
+  distance="$(string_distance "$cmd" "$removed")"
+
+  case "$removed" in
+    switch)
+      [ "$distance" -le 2 ] || return 1
+      printf '%s\n' "deploy"
+      ;;
+    update-switch)
+      [ "$distance" -le 4 ] || return 1
+      printf '%s\n' "deploy --update"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+show_command_help() {
+  topic="${1:-}"
+
+  case "$topic" in
+    "")
+      usage_main
+      ;;
+    help)
+      usage_help
+      ;;
+    bootstrap)
+      usage_bootstrap
+      ;;
+    deploy)
+      usage_deploy
+      ;;
+    secrets)
+      usage_secrets
+      ;;
+    *)
+      suggestion="$(command_list | closest_match "$topic")"
+      printf '%s\n' "error: unknown help topic: $topic" >&2
+      if [ -n "$suggestion" ]; then
+        printf '%s\n' "hint: try 'rig help $suggestion'" >&2
+      else
+        printf '%s\n' "hint: try 'rig help'" >&2
+      fi
+      exit 1
+      ;;
+  esac
+}
+
+show_unknown_command() {
+  cmd="$1"
+  replacement="$(removed_command_replacement "$cmd" || true)"
+  suggestion="$(command_list | closest_match "$cmd")"
+
+  printf '%s\n' "error: unknown command: $cmd" >&2
+  if [ -n "$replacement" ]; then
+    printf '%s\n' "hint: use 'rig $replacement'" >&2
+  elif [ -n "$suggestion" ]; then
+    printf '%s\n' "hint: did you mean 'rig $suggestion'?" >&2
+  fi
+  printf '%s\n' "hint: run 'rig help' for usage" >&2
+  exit 1
+}
+
+show_unknown_secrets_subcommand() {
+  subcommand="$1"
+  suggestion="$(secrets_command_list | closest_match "$subcommand")"
+
+  printf '%s\n' "error: unknown secrets subcommand: $subcommand" >&2
+  if [ -n "$suggestion" ]; then
+    printf '%s\n' "hint: did you mean 'rig secrets $suggestion'?" >&2
+  fi
+  printf '%s\n' "hint: run 'rig help secrets' for usage" >&2
   exit 1
 }
 
@@ -689,10 +1008,10 @@ do_secrets() {
       do_secrets_scan
       ;;
     help|-h|--help)
-      usage
+      usage_secrets
       ;;
     *)
-      die "unknown secrets subcommand: $subcommand"
+      show_unknown_secrets_subcommand "$subcommand"
       ;;
   esac
 }
@@ -713,7 +1032,108 @@ maybe_decrypt_secrets() {
   fi
 }
 
+build_host_closure() {
+  host="$1"
+  kind="$2"
+
+  case "$kind" in
+    darwin)
+      nix_cmd build ".#darwinConfigurations.$host.system"
+      ;;
+    nixos)
+      nix_cmd build ".#nixosConfigurations.$host.config.system.build.toplevel"
+      ;;
+    *)
+      die "unsupported host kind: $kind"
+      ;;
+  esac
+}
+
+activate_built_host() {
+  host="$1"
+  kind="$2"
+
+  case "$kind" in
+    darwin)
+      exec sudo ./result/sw/bin/darwin-rebuild switch --flake ".#$host"
+      ;;
+    nixos)
+      exec sudo ./result/bin/switch-to-configuration switch
+      ;;
+    *)
+      die "unsupported host kind: $kind"
+      ;;
+  esac
+}
+
+run_activation() {
+  host="$1"
+  kind="$2"
+  update_inputs="${3:-0}"
+
+  if [ "$update_inputs" -eq 1 ]; then
+    nix_cmd flake update
+  fi
+
+  maybe_decrypt_secrets "$host"
+  build_host_closure "$host" "$kind"
+  activate_built_host "$host" "$kind"
+}
+
+parse_deploy_args() {
+  deploy_host=""
+  deploy_update=0
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      -u|--update)
+        deploy_update=1
+        ;;
+      -h|--help)
+        usage_deploy
+        exit 0
+        ;;
+      --)
+        shift
+        break
+        ;;
+      -*)
+        die "unknown deploy flag: $1"
+        ;;
+      *)
+        if [ -n "$deploy_host" ]; then
+          die "usage: rig deploy [host] [--update]"
+        fi
+        deploy_host="$1"
+        ;;
+    esac
+    shift
+  done
+
+  while [ "$#" -gt 0 ]; do
+    if [ -n "$deploy_host" ]; then
+      die "usage: rig deploy [host] [--update]"
+    fi
+    deploy_host="$1"
+    shift
+  done
+
+  if [ -n "$deploy_host" ]; then
+    DEPLOY_HOST="$deploy_host"
+  else
+    DEPLOY_HOST="$(detect_host)"
+  fi
+  DEPLOY_UPDATE="$deploy_update"
+}
+
 do_bootstrap() {
+  case "${1:-}" in
+    -h|--help)
+      usage_bootstrap
+      exit 0
+      ;;
+  esac
+
   host="$(resolve_host_arg "$@")"
   kind="$(host_kind "$host")"
 
@@ -723,21 +1143,7 @@ do_bootstrap() {
   ensure_age_identity_dir
 
   cd "$repo_root"
-  maybe_decrypt_secrets "$host"
-
-  case "$kind" in
-    darwin)
-      nix_cmd build ".#darwinConfigurations.$host.system"
-      exec sudo ./result/sw/bin/darwin-rebuild switch --flake ".#$host"
-      ;;
-    nixos)
-      nix_cmd build ".#nixosConfigurations.$host.config.system.build.toplevel"
-      exec sudo ./result/bin/switch-to-configuration switch
-      ;;
-    *)
-      die "unsupported host kind: $kind"
-      ;;
-  esac
+  run_activation "$host" "$kind" 0
 }
 
 do_build() {
@@ -748,22 +1154,13 @@ do_build() {
   ensure_not_root
 
   cd "$repo_root"
-
-  case "$kind" in
-    darwin)
-      nix_cmd build ".#darwinConfigurations.$host.system"
-      ;;
-    nixos)
-      nix_cmd build ".#nixosConfigurations.$host.config.system.build.toplevel"
-      ;;
-    *)
-      die "unsupported host kind: $kind"
-      ;;
-  esac
+  build_host_closure "$host" "$kind"
 }
 
-do_switch() {
-  host="$(resolve_host_arg "$@")"
+do_deploy() {
+  parse_deploy_args "$@"
+
+  host="$DEPLOY_HOST"
   kind="$(host_kind "$host")"
 
   require_command nix
@@ -771,21 +1168,7 @@ do_switch() {
   ensure_not_root
 
   cd "$repo_root"
-  maybe_decrypt_secrets "$host"
-
-  case "$kind" in
-    darwin)
-      nix_cmd build ".#darwinConfigurations.$host.system"
-      exec sudo ./result/sw/bin/darwin-rebuild switch --flake ".#$host"
-      ;;
-    nixos)
-      nix_cmd build ".#nixosConfigurations.$host.config.system.build.toplevel"
-      exec sudo ./result/bin/switch-to-configuration switch
-      ;;
-    *)
-      die "unsupported host kind: $kind"
-      ;;
-  esac
+  run_activation "$host" "$kind" "$DEPLOY_UPDATE"
 }
 
 do_check() {
@@ -821,34 +1204,6 @@ do_fmt() {
   nix_cmd fmt "$@"
 }
 
-do_update_switch() {
-  host="$(resolve_host_arg "$@")"
-  kind="$(host_kind "$host")"
-
-  require_command nix
-  require_command sudo
-  ensure_not_root
-
-  cd "$repo_root"
-
-  nix_cmd flake update
-  maybe_decrypt_secrets "$host"
-
-  case "$kind" in
-    darwin)
-      nix_cmd build ".#darwinConfigurations.$host.system"
-      exec sudo ./result/sw/bin/darwin-rebuild switch --flake ".#$host"
-      ;;
-    nixos)
-      nix_cmd build ".#nixosConfigurations.$host.config.system.build.toplevel"
-      exec sudo ./result/bin/switch-to-configuration switch
-      ;;
-    *)
-      die "unsupported host kind: $kind"
-      ;;
-  esac
-}
-
 cmd="${1:-help}"
 if [ "$#" -gt 0 ]; then
   shift
@@ -861,8 +1216,8 @@ case "$cmd" in
   build)
     do_build "$@"
     ;;
-  switch)
-    do_switch "$@"
+  deploy)
+    do_deploy "$@"
     ;;
   check)
     do_check
@@ -872,9 +1227,6 @@ case "$cmd" in
     ;;
   update)
     do_update
-    ;;
-  update-switch)
-    do_update_switch "$@"
     ;;
   host)
     resolve_host_arg "$@"
@@ -889,10 +1241,15 @@ case "$cmd" in
     do_install_hooks
     ;;
   help|-h|--help)
-    usage
+    show_command_help "$@"
+    ;;
+  switch)
+    die "'rig switch' was removed; use 'rig deploy'"
+    ;;
+  update-switch)
+    die "'rig update-switch' was removed; use 'rig deploy --update'"
     ;;
   *)
-    usage >&2
-    exit 1
+    show_unknown_command "$cmd"
     ;;
 esac

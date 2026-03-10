@@ -1,0 +1,11 @@
+#+title: rust
+#+property: header-args:emacs-lisp :comments no :results none
+
+* rust
+
+#+begin_src emacs-lisp
+(add-to-list 'eglot-server-programs '((rust-mode rust-ts-mode) . ("rust-analyzer")))
+
+(dolist (hook '(rust-mode-hook rust-ts-mode-hook))
+  (add-hook hook #'eglot-ensure))
+#+end_src
