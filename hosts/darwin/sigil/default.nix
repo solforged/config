@@ -67,6 +67,8 @@
           telegramOwnerId = 7703164198;
         };
 
+        ai.openclawRemoteUrl = "https://sigil.ussuri-alphard.ts.net";
+
         packages.system = [
           inputs.nixpkgs.legacyPackages.aarch64-darwin.tailscale
         ];

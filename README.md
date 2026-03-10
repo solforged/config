@@ -324,6 +324,10 @@ No encrypted secret files are required for that consumer flow. If you later
 want API-key auth, keep the key in your normal local secret overrides instead
 of committing it into the repo.
 
+If `dotfiles.ai.openclawRemoteUrl` is set for a host, Home Manager also exports
+`OPENCLAW_REMOTE_URL` for shell use. `sigil` sets it to its Tailscale-served
+OpenClaw URL.
+
 ## Local-only overrides
 
 Secrets and machine-local settings stay outside the flake and outside the Nix

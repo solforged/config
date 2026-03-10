@@ -126,31 +126,6 @@ in
     )}
   '';
 
-  home.activation.materializeOpenclawGatewayConfig = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
-    configPath="${openclawStateDir}/openclaw.json"
-
-    if [ ! -f "${secretDir}/gateway-token" ]; then
-      /bin/echo "warning: missing ${secretDir}/gateway-token; OpenClaw gateway auth will keep using the rendered config source." >&2
-      exit 0
-    fi
-
-    renderedConfig="$configPath"
-    if [ -L "$configPath" ]; then
-      renderedConfig="$(${lib.getExe' pkgs.coreutils "readlink"} "$configPath")"
-    fi
-
-    tmpPath="$(${lib.getExe' pkgs.coreutils "mktemp"} "${openclawStateDir}/openclaw.json.XXXXXX")"
-    token="$(${lib.getExe' pkgs.coreutils "cat"} "${secretDir}/gateway-token")"
-
-    "${lib.getExe pkgs.jq}" \
-      --arg token "$token" \
-      'del(.secrets.providers.gatewaytoken) | .gateway.auth.token = $token' \
-      "$renderedConfig" > "$tmpPath"
-
-    /bin/chmod 600 "$tmpPath"
-    run /bin/mv "$tmpPath" "$configPath"
-  '';
-
   programs.zsh.shellAliases = {
     # Prefer the loopback dashboard on sigil; keep the Tailscale URL for remote access.
     ocd = "openclaw dashboard";
@@ -207,6 +182,7 @@ in
         };
 
         channels.telegram = {
+          enabled = true;
           tokenFile = "${secretDir}/telegram-bot-token";
           allowFrom = [
             telegramOwnerId
@@ -260,4 +236,18 @@ in
       };
     };
   };
+
+  launchd.agents."com.steipete.openclaw.gateway".config.ProgramArguments = lib.mkForce [
+    "/bin/sh"
+    "-c"
+    ''
+      tokenFile="${secretDir}/gateway-token"
+      if [ ! -f "$tokenFile" ]; then
+        echo "missing $tokenFile" >&2
+        exit 1
+      fi
+      OPENCLAW_GATEWAY_TOKEN="$(${lib.getExe' pkgs.coreutils "cat"} "$tokenFile")" \
+        exec "${pkgs.openclaw-gateway}/bin/openclaw" gateway --port 18789
+    ''
+  ];
 }
