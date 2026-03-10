@@ -11,9 +11,8 @@ let
 in
 {
   imports = [
-    ./core/ai-options.nix
-    ./editor/emacs/options.nix
-    ./desktop/dock-options.nix
+    ./core/ai/options.nix
+    ./desktop/dock/options.nix
     ./media/music/options.nix
   ];
 

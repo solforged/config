@@ -10,21 +10,10 @@
 
     apps = {
       shell = "zsh";
-      editor = "emacs";
+      editor = "nvim";
       terminal = "ghostty";
       browser = "brave";
       passwordManager = "proton-pass";
-    };
-
-    emacs.appearance = {
-      fixedPitchFamily = "BlexMono Nerd Font";
-      fixedPitchHeight = 125;
-      variablePitchFamily = "IBM Plex Sans";
-      variablePitchHeight = 1.08;
-      themeName = "modus-vivendi-tinted";
-      themePackage = null;
-      lineSpacing = 0.16;
-      startupStyle = "minimal-dashboard";
     };
 
     features = {

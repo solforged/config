@@ -1,6 +1,6 @@
 {
   imports = [
-    ./ai.nix
+    ./ai
     ./git.nix
     ./ssh.nix
   ];

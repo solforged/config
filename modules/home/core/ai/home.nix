@@ -5,7 +5,6 @@
   ...
 }:
 let
-  inherit (lib) mkEnableOption mkOption types;
   cfg = osConfig.dotfiles;
   aiCfg = cfg.ai;
   helperCommon = ''

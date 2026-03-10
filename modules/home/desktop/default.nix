@@ -1,6 +1,6 @@
 {
   imports = [
-    ./dock.nix
+    ./dock
     ./ghostty.nix
     ./yazi.nix
     ./zellij.nix

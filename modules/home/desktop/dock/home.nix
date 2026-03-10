@@ -6,7 +6,6 @@
   ...
 }:
 let
-  inherit (lib) mkEnableOption;
   cfg = osConfig.dotfiles;
   isDarwin = lib.hasSuffix "darwin" cfg.host.platform;
   dockPaths = {
