@@ -1,6 +1,6 @@
 # tools
 
-OpenClaw on `sigil` is expected to work primarily through the Nix-managed
+openclaw on `sigil` is expected to work primarily through the nix-managed
 gateway and a small built-in toolset.
 
 avoid broad or destructive system changes unless the user explicitly asks for
@@ -11,5 +11,5 @@ them here. good local-only examples:
 
 - device nicknames
 - room or camera names
-- SSH aliases and internal hostnames
+- ssh aliases and internal hostnames
 - voice or speaker preferences
