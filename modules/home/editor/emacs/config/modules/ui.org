@@ -1,0 +1,82 @@
+* UI
+
+** Theme and chrome
+
+#+begin_src emacs-lisp
+(defconst dotfiles/default-font-family "BlexMono Nerd Font Mono")
+(defconst dotfiles/default-font-size 120)
+(defconst dotfiles/default-frame-width 160)
+(defconst dotfiles/default-frame-height 65)
+
+(use-package doom-themes
+  :config
+  (load-theme 'doom-one t)
+  (doom-themes-visual-bell-config)
+  (doom-themes-org-config))
+
+(use-package solaire-mode
+  :config
+  (solaire-global-mode 1))
+
+(use-package nerd-icons)
+
+(use-package doom-modeline
+  :init
+  (setq doom-modeline-height 28)
+  (setq doom-modeline-bar-width 4)
+  (setq doom-modeline-buffer-file-name-style 'truncate-except-project)
+  (setq doom-modeline-workspace-name t)
+  :config
+  (doom-modeline-mode 1))
+
+(use-package dashboard
+  :ensure (:build (:not elpaca-build-compile))
+  :init
+  (setq dashboard-startup-banner (expand-file-name "banner.txt" user-emacs-directory))
+  (setq dashboard-banner-logo-title "Welcome to Emacs!")
+  (setq dashboard-display-icons-p nil)
+  (setq dashboard-set-heading-icons nil)
+  (setq dashboard-set-file-icons nil)
+  (setq dashboard-show-shortcuts nil)
+  (setq dashboard-footer-messages '("Welcome to the church of Emacs"))
+  (setq dashboard-projects-backend 'project-el)
+  (setq dashboard-items '((recents . 8)
+                          (bookmarks . 5)
+                          (agenda . 5)))
+  (setq dashboard-center-content t)
+  (setq dashboard-item-shortcuts '((recents . "r")
+                                   (bookmarks . "m")
+                                   (agenda . "a")))
+  :config
+  (set-face-attribute 'dashboard-banner-logo-title nil :foreground "#f776c6" :weight 'bold :height 1.15)
+  (set-face-attribute 'dashboard-heading nil :foreground "#f776c6" :weight 'bold)
+  (set-face-attribute 'dashboard-items-face nil :foreground "#f8f8f2" :weight 'bold)
+  (set-face-attribute 'dashboard-no-items-face nil :foreground "#c0caf5")
+  (dashboard-setup-startup-hook))
+
+(use-package emacs
+  :ensure nil
+  :if (display-graphic-p)
+  :config
+  (add-to-list 'default-frame-alist `(width . ,dotfiles/default-frame-width))
+  (add-to-list 'default-frame-alist `(height . ,dotfiles/default-frame-height))
+  (setq initial-frame-alist
+        (append
+         `((width . ,dotfiles/default-frame-width)
+           (height . ,dotfiles/default-frame-height))
+         initial-frame-alist))
+  (set-face-attribute 'default nil :family dotfiles/default-font-family :height dotfiles/default-font-size)
+  (set-face-attribute 'fixed-pitch nil :family dotfiles/default-font-family :height dotfiles/default-font-size)
+  (set-face-attribute 'variable-pitch nil :family "IBM Plex Sans" :height 1.0)
+  (blink-cursor-mode -1)
+  (setq frame-title-format
+        '("Emacs - " (:eval (if (buffer-file-name)
+                                (abbreviate-file-name (buffer-file-name))
+                              "%b")))))
+
+(use-package exec-path-from-shell
+  :if (or (daemonp) (display-graphic-p))
+  :config
+  (setq exec-path-from-shell-arguments '("-l"))
+  (exec-path-from-shell-initialize))
+#+end_src

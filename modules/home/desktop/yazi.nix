@@ -9,7 +9,7 @@ in
       shellWrapperName = "y";
       enableFishIntegration = cfg.apps.shell == "fish";
       enableNushellIntegration = cfg.apps.shell == "nushell";
-      enableZshIntegration = true;
+      enableZshIntegration = cfg.apps.shell == "zsh";
       settings = {
         mgr = {
           ratio = [

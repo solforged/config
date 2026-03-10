@@ -8,9 +8,18 @@
 let
   cfg = osConfig.dotfiles;
   isDarwin = lib.hasSuffix "darwin" cfg.host.platform;
+  emacsPackage =
+    let
+      candidates = map (name: lib.attrByPath [ name ] null pkgs) [
+        "emacs-unstable"
+        "emacs"
+      ];
+    in
+    lib.findFirst (pkg: pkg != null) pkgs.emacs candidates;
+  emacsClient = lib.getExe' emacsPackage "emacsclient";
   dockPaths = {
     editor = {
-      emacs = "$HOME/Applications/Home Manager Apps/Emacs.app";
+      emacs = "$HOME/Applications/Nix Apps/Emacs.app";
       nvim = null;
     };
     browser = {
@@ -43,6 +52,53 @@ in
       DOCKUTIL="${lib.getExe pkgs.dockutil}"
 
       if [ -n "$DOCKUTIL" ] && [ -e "$HOME/Library/Preferences/com.apple.dock.plist" ]; then
+        ${lib.optionalString (cfg.apps.editor == "emacs") ''
+          app_target="$HOME/Applications/Nix Apps/Emacs.app"
+          contents_dir="$app_target/Contents"
+          macos_dir="$contents_dir/MacOS"
+          resources_dir="$contents_dir/Resources"
+
+          /bin/rm -rf "$app_target"
+          /bin/mkdir -p "$macos_dir" "$resources_dir"
+
+          cat > "$contents_dir/Info.plist" <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+            <dict>
+              <key>CFBundleDevelopmentRegion</key>
+              <string>English</string>
+              <key>CFBundleExecutable</key>
+              <string>Emacs</string>
+              <key>CFBundleIconFile</key>
+              <string>Emacs.icns</string>
+              <key>CFBundleIdentifier</key>
+              <string>io.solforged.emacs-client</string>
+              <key>CFBundleInfoDictionaryVersion</key>
+              <string>6.0</string>
+              <key>CFBundleName</key>
+              <string>Emacs</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>1.0</string>
+              <key>CFBundleVersion</key>
+              <string>1</string>
+            </dict>
+          </plist>
+          EOF
+
+          /bin/cp "${emacsPackage}/Applications/Emacs.app/Contents/Resources/Emacs.icns" \
+            "$resources_dir/Emacs.icns"
+
+          cat > "$macos_dir/Emacs" <<EOF
+          #!${pkgs.runtimeShell}
+          exec ${emacsClient} -c -a emacs "\$@"
+          EOF
+
+          /bin/chmod +x "$macos_dir/Emacs"
+        ''}
+
         add_dock_item() {
           if [ -n "$1" ] && [ -e "$1" ]; then
             "$DOCKUTIL" --add "$1" --no-restart "$HOME"
