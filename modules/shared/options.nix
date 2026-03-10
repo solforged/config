@@ -176,6 +176,21 @@ in
       };
     };
 
+    ai = {
+      enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = "Enable Codex-first local AI helpers for development hosts.";
+      };
+
+      openclawRemoteUrl = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        example = "https://server.domain.ts.net";
+        description = "Optional remote OpenClaw URL exposed to local helper commands.";
+      };
+    };
+
     features = {
       homebrew.enable = mkOption {
         type = types.bool;

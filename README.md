@@ -324,9 +324,38 @@ No encrypted secret files are required for that consumer flow. If you later
 want API-key auth, keep the key in your normal local secret overrides instead
 of committing it into the repo.
 
+Development hosts also enable `dotfiles.ai.enable`, which installs a small
+Codex-first helper layer:
+
+- `codex-here`: start `codex` from the current git root, or the current
+  directory when outside a repo
+- `codex-resume`: resume the most recent Codex session in the current git root
+  by default, or pass the normal `codex resume` arguments explicitly
+- `openclaw-remote`: print the configured `dotfiles.ai.openclawRemoteUrl`, or
+  open it with `--open`
+
 If `dotfiles.ai.openclawRemoteUrl` is set for a host, Home Manager also exports
 `OPENCLAW_REMOTE_URL` for shell use. `sigil` sets it to its Tailscale-served
 OpenClaw URL.
+
+## Neovim Workflow
+
+The shared Nixvim config keeps the language setup intentionally small, but now
+adds project-workflow commands on top:
+
+- `<leader>qs`: save a session for the current project root
+- `<leader>qr`: restore the saved session for the current project root
+- `<leader>tt`: toggle the floating project terminal
+- `<leader>pr`: prompt for a command to run from the current git root
+- `<leader>pR`: rerun the last project command in the current Neovim session
+- `<leader>xx`: toggle the diagnostics view
+- `<leader>xq`: toggle the quickfix list in Trouble
+- `<leader>xo`: toggle the built-in quickfix window
+- `[q` and `]q`: jump between quickfix entries
+
+Project commands resolve the current git root with `git rev-parse
+--show-toplevel` and fall back to the current working directory when not in a
+repo.
 
 ## Local-only overrides
 

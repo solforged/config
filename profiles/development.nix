@@ -10,6 +10,8 @@ let
 in
 {
   config = lib.mkIf (lib.elem "development" cfg.profiles) {
+    dotfiles.ai.enable = true;
+
     dotfiles.packages.home = with pkgs; [
       codex
       cargo
