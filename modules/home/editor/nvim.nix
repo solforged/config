@@ -9,10 +9,10 @@ let
   hasDevelopmentProfile = cfg.profiles.development.enable;
 in
 {
-  config = lib.mkIf (cfg.apps.editor == "nvim") {
+  config = lib.mkIf (builtins.elem "nvim" cfg.apps.enabledEditors) {
     programs.nixvim = {
       enable = true;
-      defaultEditor = true;
+      defaultEditor = cfg.apps.editor == "nvim";
       viAlias = true;
       vimAlias = true;
 

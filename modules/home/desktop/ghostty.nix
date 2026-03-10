@@ -7,6 +7,7 @@ in
     programs.ghostty = {
       enable = true;
       package = null;
+      enableZshIntegration = cfg.apps.shell == "zsh";
       settings = {
         "font-size" = 12;
         theme = "dark:TokyoNight Storm,light:TokyoNight Storm";

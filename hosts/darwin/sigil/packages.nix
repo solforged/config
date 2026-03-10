@@ -10,8 +10,6 @@
     ];
 
     homebrew.casks = [
-      "font-blex-mono-nerd-font"
-      "font-ibm-plex-sans"
       "tailscale-app"
     ];
 

@@ -1,0 +1,110 @@
+* Editing
+
+** Modal editing and leader keys
+
+#+begin_src emacs-lisp
+(use-package undo-fu)
+
+(defmacro dotfiles/leader-def (&rest args)
+  "Define Doom-style leader bindings via general."
+  `(general-define-key
+    :states '(normal visual motion emacs)
+    :keymaps 'override
+    :prefix "SPC"
+    :global-prefix "M-SPC"
+    ,@args))
+
+(defmacro dotfiles/local-leader-def (&rest args)
+  "Define local leader bindings via general."
+  `(general-define-key
+    :states '(normal visual motion emacs)
+    :keymaps 'override
+    :prefix ","
+    ,@args))
+
+(use-package evil
+  :init
+  (setq evil-want-keybinding nil)
+  (setq evil-want-integration t)
+  (setq evil-undo-system 'undo-fu)
+  (setq evil-want-C-u-scroll t)
+  (setq evil-split-window-below t)
+  (setq evil-vsplit-window-right t)
+  :config
+  (evil-mode 1))
+
+(use-package evil-collection
+  :after evil
+  :config
+  (evil-collection-init))
+
+(use-package evil-snipe
+  :after evil
+  :config
+  (setq evil-snipe-scope 'buffer)
+  (evil-snipe-mode 1)
+  (evil-snipe-override-mode 1))
+
+(use-package general
+  :ensure (:build (:not elpaca-build-compile))
+  :after evil
+  :config
+  (general-define-key
+   :states '(normal visual insert emacs)
+   "C-h" #'windmove-left
+   "C-j" #'windmove-down
+   "C-k" #'windmove-up
+   "C-l" #'windmove-right)
+  (dotfiles/leader-def
+    "b" '(:ignore t :which-key "buffers")
+    "c" '(:ignore t :which-key "code")
+    "e" '(:ignore t :which-key "editor")
+    "f" '(:ignore t :which-key "files")
+    "g" '(:ignore t :which-key "git")
+    "n" '(:ignore t :which-key "notes")
+    "p" '(:ignore t :which-key "project")
+    "q" '(:ignore t :which-key "quit")
+    "t" '(:ignore t :which-key "toggles")
+    "x" '(:ignore t :which-key "diagnostics")))
+
+(use-package which-key
+  :init
+  (setq which-key-idle-delay 0.35)
+  (setq which-key-sort-order #'which-key-prefix-then-key-order)
+  :config
+  (which-key-mode 1))
+#+end_src
+
+** Motions and editing helpers
+
+#+begin_src emacs-lisp
+(use-package avy
+  :commands (avy-goto-char-timer avy-goto-word-1))
+
+(use-package expand-region
+  :commands er/expand-region)
+
+(use-package smartparens
+  :ensure (:build (:not elpaca-build-compile))
+  :hook ((prog-mode . smartparens-mode)
+         (org-mode . smartparens-mode))
+  :config
+  (require 'smartparens-config))
+
+(use-package rainbow-delimiters
+  :hook (prog-mode . rainbow-delimiters-mode))
+
+(use-package ws-butler
+  :hook ((prog-mode . ws-butler-mode)
+         (text-mode . ws-butler-mode)))
+
+(with-eval-after-load 'general
+  (dotfiles/leader-def
+    "b b" '(switch-to-buffer :which-key "switch buffer")
+    "b d" '(kill-current-buffer :which-key "kill current buffer")
+    "b n" '(next-buffer :which-key "next buffer")
+    "b p" '(previous-buffer :which-key "previous buffer")
+    "b r" '(revert-buffer :which-key "revert buffer")
+    "f j" '(avy-goto-char-timer :which-key "jump")
+    "v" '(er/expand-region :which-key "expand region")))
+#+end_src

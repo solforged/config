@@ -7,7 +7,7 @@ in
     enable = true;
     enableFishIntegration = cfg.apps.shell == "fish";
     enableNushellIntegration = cfg.apps.shell == "nushell";
-    enableZshIntegration = true;
+    enableZshIntegration = cfg.apps.shell == "zsh";
     settings = {
       add_newline = true;
       command_timeout = 1200;
