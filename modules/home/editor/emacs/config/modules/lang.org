@@ -1,0 +1,59 @@
+* Languages
+
+** Tree-sitter and environment
+
+#+begin_src emacs-lisp
+(use-package envrc
+  :config
+  (envrc-global-mode 1))
+
+(use-package treesit-auto
+  :config
+  (setq treesit-auto-install 'prompt)
+  (global-treesit-auto-mode 1))
+#+end_src
+
+** LSP and formatting
+
+#+begin_src emacs-lisp
+(use-package eglot
+  :ensure nil
+  :hook ((go-ts-mode . eglot-ensure)
+         (rust-ts-mode . eglot-ensure)
+         (tsx-ts-mode . eglot-ensure)
+         (typescript-ts-mode . eglot-ensure)
+         (nix-mode . eglot-ensure))
+  :config
+  (setq eglot-autoshutdown t)
+  (setq eglot-send-changes-idle-time 0.2)
+  (add-to-list 'eglot-server-programs '((nix-mode) "nil"))
+  (add-to-list 'eglot-server-programs '((tsx-ts-mode typescript-ts-mode) "typescript-language-server" "--stdio")))
+
+(use-package consult-eglot
+  :after (consult eglot))
+
+(use-package apheleia
+  :config
+  (apheleia-global-mode 1)
+  (setf (alist-get 'nixfmt-rfc-style apheleia-formatters)
+        '("nixfmt"))
+  (setf (alist-get 'nix-mode apheleia-mode-alist) 'nixfmt-rfc-style)
+  (setf (alist-get 'typescript-ts-mode apheleia-mode-alist) 'prettier)
+  (setf (alist-get 'tsx-ts-mode apheleia-mode-alist) 'prettier)
+  (setf (alist-get 'go-ts-mode apheleia-mode-alist) 'gofmt)
+  (setf (alist-get 'rust-ts-mode apheleia-mode-alist) 'rustfmt))
+
+(use-package nix-mode
+  :mode "\\.nix\\'")
+
+(with-eval-after-load 'general
+  (dotfiles/leader-def
+    "c a" '(eglot-code-actions :which-key "code action")
+    "c d" '(xref-find-definitions :which-key "definition")
+    "c f" '(apheleia-format-buffer :which-key "format buffer")
+    "c h" '(eldoc :which-key "documentation")
+    "c r" '(eglot-rename :which-key "rename")
+    "c s" '(consult-eglot-symbols :which-key "workspace symbols")
+    "x b" '(flymake-show-buffer-diagnostics :which-key "buffer diagnostics")
+    "x l" '(flymake-show-project-diagnostics :which-key "project diagnostics")))
+#+end_src

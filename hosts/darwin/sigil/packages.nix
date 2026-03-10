@@ -1,17 +1,13 @@
 { pkgs, ... }:
 {
   dotfiles = {
-    packages.home = [
-      pkgs.neovim
-    ];
+    packages.home = [ ];
 
     packages.system = [
       pkgs.tailscale
     ];
 
     homebrew.casks = [
-      "font-blex-mono-nerd-font"
-      "font-ibm-plex-sans"
       "tailscale-app"
     ];
 

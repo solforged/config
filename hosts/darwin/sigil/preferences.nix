@@ -10,7 +10,11 @@
 
     apps = {
       shell = "zsh";
-      editor = "nvim";
+      editor = "emacs";
+      enabledEditors = [
+        "emacs"
+        "nvim"
+      ];
       terminal = "ghostty";
       browser = "brave";
       passwordManager = "proton-pass";

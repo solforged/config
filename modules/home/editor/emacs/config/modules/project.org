@@ -1,0 +1,80 @@
+* Project
+
+** Projects, git, and terminals
+
+#+begin_src emacs-lisp
+(use-package project
+  :ensure nil
+  :config
+  (setq project-switch-commands
+        '((project-find-file "Find file")
+          (consult-ripgrep "Ripgrep")
+          (magit-project-status "Magit")
+          (project-dired "Dired"))))
+
+(use-package transient
+  :ensure (:host github :repo "magit/transient")
+  :defer t)
+
+(use-package magit
+  :ensure (:host github :repo "magit/magit")
+  :after transient
+  :commands (magit-status magit-project-status))
+
+(use-package diff-hl
+  :hook ((prog-mode . diff-hl-mode)
+         (text-mode . diff-hl-mode)
+         (dired-mode . diff-hl-dired-mode)
+         (magit-post-refresh . diff-hl-magit-post-refresh)))
+
+(use-package dired
+  :ensure nil
+  :config
+  (if (bound-and-true-p dotfiles-host-is-darwin)
+      (progn
+        (require 'ls-lisp)
+        (setq ls-lisp-dirs-first t)
+        (setq ls-lisp-use-insert-directory-program nil)
+        (setq dired-use-ls-dired nil)
+        (setq dired-listing-switches "-alh"))
+    (setq dired-listing-switches "-alh --group-directories-first")))
+
+(use-package dirvish
+  :init
+  (dirvish-override-dired-mode)
+  :config
+  (setq dirvish-attributes '(vc-state subtree-state collapse file-size))
+  (setq dirvish-mode-line-format '(:left (sort file-time file-size symlink) :right (omit yank index))))
+
+(use-package eat
+  :commands (eat eat-project))
+
+(use-package restart-emacs
+  :commands restart-emacs)
+
+(defun dotfiles/project-root ()
+  "Return the current project root or `default-directory'."
+  (if-let ((project (project-current)))
+      (project-root project)
+    default-directory))
+
+(defun dotfiles/open-terminal-here ()
+  "Open Eat in the current project root."
+  (interactive)
+  (let ((default-directory (dotfiles/project-root)))
+    (call-interactively #'eat)))
+
+(with-eval-after-load 'general
+  (dotfiles/leader-def
+    "g g" '(magit-status :which-key "magit status")
+    "g p" '(magit-project-status :which-key "magit project")
+    "p b" '(consult-project-buffer :which-key "project buffers")
+    "p d" '(project-dired :which-key "project dired")
+    "p f" '(project-find-file :which-key "project file")
+    "p p" '(project-switch-project :which-key "switch project")
+    "p r" '(consult-ripgrep :which-key "project ripgrep")
+    "t t" '(dotfiles/open-terminal-here :which-key "eat terminal")
+    "q q" '(save-buffers-kill-emacs :which-key "quit emacs")
+    "q r" '(restart-emacs :which-key "restart emacs")
+    "q s" '(save-some-buffers :which-key "save buffers")))
+#+end_src

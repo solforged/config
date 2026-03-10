@@ -1,0 +1,178 @@
+* Core
+
+** Paths and defaults
+
+#+begin_src emacs-lisp
+(setq-default
+ indent-tabs-mode nil
+ tab-width 2
+ fill-column 100
+ truncate-lines t)
+
+(setq-default cursor-in-non-selected-windows nil)
+(setq-default bidi-display-reordering 'left-to-right)
+
+(setq inhibit-startup-message t)
+(setq inhibit-startup-echo-area-message user-login-name)
+(setq ring-bell-function #'ignore)
+(setq use-short-answers t)
+(setq sentence-end-double-space nil)
+(setq initial-scratch-message nil)
+(setq make-backup-files t)
+(setq auto-save-default t)
+(setq create-lockfiles nil)
+(setq scroll-conservatively 101)
+(setq scroll-margin 8)
+(setq-default display-line-numbers-type 'relative)
+(global-display-line-numbers-mode 1)
+(column-number-mode 1)
+(save-place-mode 1)
+(savehist-mode 1)
+(recentf-mode 1)
+(winner-mode 1)
+(when (fboundp 'tab-bar-history-mode)
+  (tab-bar-history-mode 1))
+(pixel-scroll-precision-mode 1)
+
+(dolist (mode '(eshell-mode-hook
+                shell-mode-hook
+                term-mode-hook
+                vterm-mode-hook
+                eat-mode-hook
+                org-mode-hook))
+  (add-hook mode (lambda () (display-line-numbers-mode 0))))
+
+(defconst dotfiles/cache-home
+  (or (getenv "XDG_CACHE_HOME")
+      (expand-file-name ".cache" (getenv "HOME"))))
+
+(defconst dotfiles/data-home
+  (or (getenv "XDG_DATA_HOME")
+      (expand-file-name ".local/share" (getenv "HOME"))))
+
+(defconst dotfiles/state-home
+  (or (getenv "XDG_STATE_HOME")
+      (expand-file-name ".local/state" (getenv "HOME"))))
+
+(defconst dotfiles/cache-directory
+  (expand-file-name "emacs/" dotfiles/cache-home))
+
+(defconst dotfiles/state-directory
+  (expand-file-name "emacs/" dotfiles/state-home))
+
+(make-directory dotfiles/cache-directory t)
+(make-directory dotfiles/state-directory t)
+(make-directory (expand-file-name "backups/" dotfiles/state-directory) t)
+(make-directory (expand-file-name "auto-save/" dotfiles/state-directory) t)
+(make-directory (expand-file-name "eln/" dotfiles/cache-directory) t)
+(make-directory (expand-file-name "savehist/" dotfiles/state-directory) t)
+(make-directory (expand-file-name "recentf/" dotfiles/state-directory) t)
+
+(setq backup-directory-alist `(("." . ,(expand-file-name "backups/" dotfiles/state-directory))))
+(setq auto-save-file-name-transforms `((".*" ,(expand-file-name "auto-save/" dotfiles/state-directory) t)))
+(setq custom-file (expand-file-name "custom.el" dotfiles/state-directory))
+(setq history-length 200)
+(setq recentf-max-saved-items 200)
+(setq recentf-save-file (expand-file-name "recentf/recentf" dotfiles/state-directory))
+(setq savehist-file (expand-file-name "savehist/history" dotfiles/state-directory))
+
+(when (fboundp 'startup-redirect-eln-cache)
+  (startup-redirect-eln-cache (expand-file-name "eln/" dotfiles/cache-directory)))
+
+(load custom-file t)
+#+end_src
+
+** Bootstrap packages
+
+#+begin_src emacs-lisp
+(defvar elpaca-installer-version 0.12)
+(defvar elpaca-directory (expand-file-name "elpaca/" dotfiles/data-home))
+(defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
+(defvar elpaca-sources-directory (expand-file-name "sources/" elpaca-directory))
+(defvar elpaca-legacy-repos-directory (expand-file-name "repos/" elpaca-directory))
+(defvar elpaca-order
+  '(elpaca :repo "https://github.com/progfolio/elpaca.git"
+           :ref nil
+           :depth 1
+           :inherit ignore
+           :files (:defaults "elpaca-test.el" (:exclude "extensions"))
+           :build (:not elpaca-activate)))
+
+(let* ((repo (cond
+              ((file-directory-p (expand-file-name "elpaca/" elpaca-sources-directory))
+               (expand-file-name "elpaca/" elpaca-sources-directory))
+              ((file-directory-p (expand-file-name "elpaca/" elpaca-legacy-repos-directory))
+               (expand-file-name "elpaca/" elpaca-legacy-repos-directory))
+              (t
+               (expand-file-name "elpaca/" elpaca-sources-directory))))
+       (build (expand-file-name "elpaca/" elpaca-builds-directory))
+       (order (cdr elpaca-order))
+       (default-directory repo))
+  (add-to-list 'load-path (if (file-exists-p build) build repo))
+  (unless (file-exists-p repo)
+    (make-directory repo t)
+    (when (<= emacs-major-version 28)
+      (require 'subr-x))
+    (condition-case-unless-debug err
+        (if-let* ((buffer (get-buffer-create "*elpaca-bootstrap*"))
+                  ((zerop
+                    (apply
+                     #'call-process
+                     `("git" nil ,buffer t "clone"
+                       ,@(when-let ((depth (plist-get order :depth)))
+                           (list (format "--depth=%d" depth) "--no-single-branch"))
+                       ,(plist-get order :repo)
+                       ,repo))))
+                  ((zerop (call-process "git" nil buffer t "checkout"
+                                        (or (plist-get order :ref) "--"))))
+                  (emacs (concat invocation-directory invocation-name))
+                  ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
+                                        "--eval" "(byte-recompile-directory \".\" 0 'force)")))
+                  ((require 'elpaca))
+                  ((elpaca-generate-autoloads "elpaca" repo)))
+            (progn
+              (message "%s" (buffer-string))
+              (kill-buffer buffer))
+          (error "%s" (with-current-buffer buffer (buffer-string))))
+      ((error)
+       (warn "%s" err)
+       (delete-directory repo 'recursive))))
+  (unless (require 'elpaca-autoloads nil t)
+    (require 'elpaca)
+    (elpaca-generate-autoloads "elpaca" repo)
+    (let ((load-source-file-function nil))
+      (load "./elpaca-autoloads"))))
+
+(add-hook 'after-init-hook #'elpaca-process-queues)
+(elpaca `(,@elpaca-order))
+
+(elpaca elpaca-use-package
+  (elpaca-use-package-mode))
+
+(setq use-package-always-ensure t)
+(setq use-package-expand-minimally t)
+(setq use-package-compute-statistics t)
+#+end_src
+
+** Built-in quality-of-life
+
+#+begin_src emacs-lisp
+(use-package emacs
+  :ensure nil
+  :init
+  (setq completion-ignore-case t
+        read-buffer-completion-ignore-case t
+        read-file-name-completion-ignore-case t)
+  :config
+  (delete-selection-mode 1)
+  (electric-pair-mode 1)
+  (global-auto-revert-mode 1)
+  (repeat-mode 1)
+  (show-paren-mode 1)
+  (setq auto-revert-verbose nil)
+  )
+
+(use-package gcmh
+  :config
+  (gcmh-mode 1))
+#+end_src

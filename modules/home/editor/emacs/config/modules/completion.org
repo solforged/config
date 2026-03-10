@@ -1,0 +1,79 @@
+* Completion
+
+** Minibuffer completion
+
+#+begin_src emacs-lisp
+(use-package vertico
+  :init
+  (setq vertico-resize t)
+  (setq vertico-cycle t)
+  :config
+  (vertico-mode 1))
+
+(use-package orderless
+  :init
+  (setq completion-styles '(orderless basic))
+  (setq completion-category-defaults nil)
+  (setq completion-category-overrides '((file (styles basic partial-completion)))))
+
+(use-package marginalia
+  :after vertico
+  :config
+  (marginalia-mode 1))
+
+(use-package consult
+  :bind (("C-s" . consult-line)
+         ("C-x b" . consult-buffer)
+         ("C-x p b" . consult-project-buffer))
+  :config
+  (setq consult-project-function
+        (lambda (_)
+          (when-let ((project (project-current)))
+            (project-root project)))))
+
+(use-package embark
+  :bind (("C-." . embark-act)
+         ("C-;" . embark-dwim)
+         ("C-h B" . embark-bindings))
+  :init
+  (setq prefix-help-command #'embark-prefix-help-command))
+
+(use-package embark-consult
+  :after (embark consult)
+  :hook (embark-collect-mode . consult-preview-at-point-mode))
+#+end_src
+
+** In-buffer completion
+
+#+begin_src emacs-lisp
+(use-package corfu
+  :init
+  (setq corfu-auto t)
+  (setq corfu-auto-delay 0.14)
+  (setq corfu-auto-prefix 2)
+  (setq corfu-preview-current nil)
+  (setq corfu-cycle t)
+  :config
+  (global-corfu-mode 1))
+
+(use-package cape
+  :after corfu
+  :init
+  (add-to-list 'completion-at-point-functions #'cape-file)
+  (add-to-list 'completion-at-point-functions #'cape-dabbrev))
+
+(use-package tempel
+  :commands (tempel-complete tempel-expand))
+
+(use-package tempel-collection
+  :after tempel)
+
+(with-eval-after-load 'general
+  (dotfiles/leader-def
+    "b i" '(consult-buffer :which-key "buffer switcher")
+    "f f" '(find-file :which-key "find file")
+    "f g" '(consult-ripgrep :which-key "ripgrep")
+    "f h" '(consult-history :which-key "history")
+    "f l" '(consult-line :which-key "search line")
+    "f r" '(consult-recent-file :which-key "recent files")))
+#+end_src

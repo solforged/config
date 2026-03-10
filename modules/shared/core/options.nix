@@ -1,6 +1,11 @@
-{ lib, ... }:
+{
+  config,
+  lib,
+  ...
+}:
 let
   inherit (lib) mkOption types;
+  cfg = config.dotfiles.apps;
 in
 {
   options.dotfiles = {
@@ -85,6 +90,17 @@ in
         description = "Preferred editor.";
       };
 
+      enabledEditors = mkOption {
+        type = types.listOf (
+          types.enum [
+            "nvim"
+            "emacs"
+          ]
+        );
+        default = [ config.dotfiles.apps.editor ];
+        description = "Editors to configure on this host.";
+      };
+
       terminal = mkOption {
         type = types.enum [
           "ghostty"
@@ -160,4 +176,11 @@ in
     };
 
   };
+
+  config.assertions = [
+    {
+      assertion = builtins.elem cfg.editor cfg.enabledEditors;
+      message = "dotfiles.apps.editor must be included in dotfiles.apps.enabledEditors.";
+    }
+  ];
 }

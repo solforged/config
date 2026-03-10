@@ -18,7 +18,9 @@ in
     ];
 
     dotfiles.homebrew.casks = lib.optionals isDarwin [
-      "font-jetbrains-mono-nerd-font"
+      "font-blex-mono-nerd-font"
+      "font-ibm-plex-sans"
+      "font-symbols-only-nerd-font"
     ];
   };
 }

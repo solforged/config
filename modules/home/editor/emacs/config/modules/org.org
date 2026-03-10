@@ -1,0 +1,480 @@
+* Org
+
+** Org mode and literate helpers
+
+#+begin_src emacs-lisp
+(defconst dotfiles/org-directory
+  (expand-file-name "org/" dotfiles/data-home))
+
+(defconst dotfiles/org-inbox-file
+  (expand-file-name "inbox.org" dotfiles/org-directory))
+
+(defconst dotfiles/org-tasks-file
+  (expand-file-name "tasks.org" dotfiles/org-directory))
+
+(defconst dotfiles/org-roam-directory
+  (expand-file-name "roam/" dotfiles/org-directory))
+
+(defconst dotfiles/org-agenda-base-files
+  (list dotfiles/org-inbox-file dotfiles/org-tasks-file))
+
+(defconst dotfiles/org-roam-note-types
+  '("note" "project" "topic" "contact" "secret"))
+
+(defconst dotfiles/org-roam-known-types
+  '("journal" "note" "project" "topic" "contact" "secret"))
+
+(defconst dotfiles/org-roam-backlink-groups
+  '(("Backlinks" "journal" "note")
+    ("Relevant Items" "secret" "topic" "project" "contact")))
+
+(make-directory dotfiles/org-directory t)
+(make-directory dotfiles/org-roam-directory t)
+(dolist (file (list dotfiles/org-inbox-file dotfiles/org-tasks-file))
+  (unless (file-exists-p file)
+    (with-temp-file file
+      (insert "#+title: " (file-name-base file) "\n\n"))))
+
+(defun dotfiles/org-roam-generate-identifier ()
+  "Return a Denote-style timestamp identifier for a new note."
+  (format-time-string "%Y%m%dT%H%M%S"))
+
+(defun dotfiles/org-roam-slugify-title (title)
+  "Convert TITLE into a lowercase kebab-case filename slug."
+  (thread-first (org-roam-node-slugify title)
+    (replace-regexp-in-string "_+" "-")
+    (replace-regexp-in-string "-+" "-")
+    (replace-regexp-in-string "\\`-\\|-\\'" "")))
+
+(defun dotfiles/org-roam-normalize-keywords (keywords)
+  "Return KEYWORDS as a list of normalized kebab-case tags."
+  (let ((items (cond
+                ((null keywords) nil)
+                ((stringp keywords) (split-string keywords ","))
+                ((listp keywords) keywords)
+                (t (list keywords)))))
+    (seq-filter
+     (lambda (keyword) (not (string-empty-p keyword)))
+     (mapcar
+      (lambda (keyword)
+        (dotfiles/org-roam-slugify-title (string-trim (format "%s" keyword))))
+      items))))
+
+(defun dotfiles/org-roam-build-filetags (type &optional keywords extra-tags)
+  "Return normalized filetags for TYPE, KEYWORDS, and EXTRA-TAGS."
+  (seq-uniq
+   (append
+    (dotfiles/org-roam-normalize-keywords (list type))
+    (dotfiles/org-roam-normalize-keywords keywords)
+    (dotfiles/org-roam-normalize-keywords extra-tags))
+   #'string-equal))
+
+(defun dotfiles/org-roam-build-filename (identifier title keywords)
+  "Return a Denote-style Org filename for IDENTIFIER, TITLE, and KEYWORDS."
+  (format "%s--%s__%s.org"
+          identifier
+          (dotfiles/org-roam-slugify-title title)
+          (string-join (dotfiles/org-roam-normalize-keywords keywords) "_")))
+
+(defun dotfiles/org-roam-node-type (node)
+  "Return the primary note type for NODE."
+  (let ((tags (org-roam-node-tags node))
+        (file (org-roam-node-file node)))
+    (or (seq-find (lambda (type) (member type tags)) dotfiles/org-roam-known-types)
+        (when (and file
+                   (string-prefix-p
+                    (expand-file-name org-roam-dailies-directory org-roam-directory)
+                    file))
+          "journal")
+        "note")))
+
+(defun dotfiles/org-roam-type-icon (type)
+  "Return an icon string for TYPE, with a plain-text fallback."
+  (or
+   (when (require 'nerd-icons nil t)
+     (pcase type
+       ("contact" (nerd-icons-octicon "nf-oct-person" :face 'nerd-icons-blue))
+       ("journal" (nerd-icons-octicon "nf-oct-book" :face 'nerd-icons-green))
+       ("note" (nerd-icons-octicon "nf-oct-note" :face 'nerd-icons-silver))
+       ("project" (nerd-icons-faicon "nf-fa-cogs" :face 'nerd-icons-orange))
+       ("secret" (nerd-icons-octicon "nf-oct-lock" :face 'nerd-icons-red))
+       ("topic" (nerd-icons-octicon "nf-oct-tag" :face 'nerd-icons-purple))
+       (_ nil)))
+   (format "[%s]" (upcase (substring type 0 1)))))
+
+(defun dotfiles/org-roam--private-node-p (node)
+  "Return non-nil when NODE should hide preview content."
+  (member "secret" (org-roam-node-tags node)))
+
+(defun dotfiles/org-roam-backlinks-sort-by-date (a b)
+  "Sort backlinks A and B by filename, newest-looking first."
+  (string< (file-name-base (org-roam-node-file (org-roam-backlink-source-node b)))
+           (file-name-base (org-roam-node-file (org-roam-backlink-source-node a)))))
+
+(cl-defun dotfiles/org-roam-node-insert-section-with-tags (&key source-node point properties)
+  "Insert a customized roam buffer section for SOURCE-NODE at POINT."
+  (magit-insert-section section (org-roam-node-section)
+    (let* ((outline
+            (when-let* ((outline (plist-get properties :outline))
+                        (outline (if (member (car (last outline))
+                                             (list (org-roam-node-title org-roam-buffer-current-node)
+                                                   (org-roam-node-title source-node)))
+                                     (butlast outline)
+                                   outline)))
+              (mapconcat #'org-link-display-format outline " > ")))
+           (private (dotfiles/org-roam--private-node-p source-node))
+           (icon (dotfiles/org-roam-type-icon (dotfiles/org-roam-node-type source-node)))
+           (title (concat icon
+                          " "
+                          (propertize (org-roam-node-title source-node)
+                                      'font-lock-face 'org-roam-title)
+                          (when outline
+                            (format " > %s"
+                                    (propertize outline 'font-lock-face 'org-roam-olp)))))
+           (title (if private
+                      (concat (substring title 0 (min 4 (length title)))
+                              (make-string (max 0 (- (length title) 4)) ?*))
+                    title))
+           (tags (string-join
+                  (mapcar (lambda (tag)
+                            (propertize (concat "#" tag) 'face 'shadow))
+                          (org-roam-node-tags source-node))
+                  " ")))
+      (magit-insert-heading
+       (string-join (seq-filter #'identity (list title (and (not (string-empty-p tags)) tags))) "  "))
+      (oset section node source-node)
+      (unless private
+        (magit-insert-section section (org-roam-preview-section)
+          (insert (org-roam-fontify-like-in-org-mode
+                   (org-roam-preview-get-contents (org-roam-node-file source-node) point))
+                  "\n")
+          (oset section file (org-roam-node-file source-node))
+          (oset section point point)
+          (insert ?\n))))))
+
+(defun dotfiles/org-roam--backlinks-for-types (groups types)
+  "Return GROUPS entries flattened and sorted for TYPES."
+  (seq-mapcat
+   (lambda (type)
+     (seq-sort
+      (if (member type '("journal" "note" "project"))
+          #'dotfiles/org-roam-backlinks-sort-by-date
+        #'org-roam-backlinks-sort)
+      (copy-sequence (alist-get type groups nil nil #'string-equal))))
+   types))
+
+(defun dotfiles/org-roam-grouped-backlinks-section (node)
+  "Insert grouped backlinks for NODE."
+  (let ((groups (seq-group-by
+                 (lambda (backlink)
+                   (dotfiles/org-roam-node-type
+                    (org-roam-backlink-source-node backlink)))
+                 (org-roam-backlinks-get node))))
+    (when groups
+      (dolist (group dotfiles/org-roam-backlink-groups)
+        (let* ((title (car group))
+               (types (cdr group))
+               (backlinks (dotfiles/org-roam--backlinks-for-types groups types)))
+          (when backlinks
+            (magit-insert-section (org-roam-backlinks)
+              (magit-insert-heading (format "%s:" title))
+              (dolist (backlink backlinks)
+                (dotfiles/org-roam-node-insert-section-with-tags
+                 :source-node (org-roam-backlink-source-node backlink)
+                 :point (org-roam-backlink-point backlink)
+                 :properties (org-roam-backlink-properties backlink)))
+              (insert ?\n))))))))
+
+(defun dotfiles/org-roam--format-tags (tags)
+  "Return TAGS rendered for display."
+  (if tags
+      (string-join (mapcar (lambda (tag) (concat "#" tag)) tags) " ")
+    "-"))
+
+(defun dotfiles/org-roam-buffer-preamble ()
+  "Insert metadata preamble at the top of the current Org-roam buffer."
+  (let ((node org-roam-buffer-current-node))
+    (when node
+      (let ((inhibit-read-only t)
+            (id (org-roam-node-id node))
+            (type (dotfiles/org-roam-node-type node))
+            (tags (org-roam-node-tags node))
+            (aliases (org-roam-node-aliases node)))
+        (save-excursion
+          (goto-char (point-min))
+          (insert
+           (format "%-10s %s\n" (propertize "ID:" 'face 'bold) id)
+           (format "%-10s %s %s\n"
+                   (propertize "Type:" 'face 'bold)
+                   (dotfiles/org-roam-type-icon type)
+                   (capitalize type))
+           (format "%-10s %s\n"
+                   (propertize "Tags:" 'face 'bold)
+                   (dotfiles/org-roam--format-tags tags))
+           (format "%-10s %s\n\n"
+                   (propertize "Aliases:" 'face 'bold)
+                   (if aliases
+                       (string-join aliases ", ")
+                     "-"))))))))
+
+(defun dotfiles/org-roam-complete-tag-at-point ()
+  "Complete file tags and hashtag-like words at point."
+  (when (or (save-match-data
+              (org-in-regexp "\\(?:^\\|[ \t]\\)#[[:alnum:]_/-]*"))
+            (save-excursion
+              (goto-char (line-beginning-position))
+              (looking-at-p "#\\+filetags:")))
+    (cl-destructuring-bind (beg . end)
+        (or (bounds-of-thing-at-point 'symbol)
+            (cons (point) (point)))
+      (list beg end
+            (ignore-errors (org-roam-tag-completions))
+            :exit-function
+            (lambda (tag _status)
+              (delete-char (- (length tag)))
+              (insert tag))
+            :exclusive 'no))))
+
+(defun dotfiles/org-roam--enable-tag-completion ()
+  "Enable Org-roam tag completion for the current Org buffer."
+  (add-hook 'completion-at-point-functions #'dotfiles/org-roam-complete-tag-at-point nil t))
+
+(defun dotfiles/org-roam-agenda-files ()
+  "Return roam files that are explicitly tagged for the agenda."
+  (seq-uniq
+   (seq-map
+    #'car
+    (or
+     (ignore-errors
+       (org-roam-db-query
+        [:select [nodes:file]
+         :from tags
+         :left-join nodes
+         :on (= tags:node-id nodes:id)
+         :where (= tag "agenda")]))
+     '()))))
+
+(defun dotfiles/org-roam-refresh-agenda-files (&rest _)
+  "Refresh `org-agenda-files' from static files plus opted-in roam notes."
+  (interactive)
+  (setq org-agenda-files
+        (seq-uniq
+         (append dotfiles/org-agenda-base-files
+                 (dotfiles/org-roam-agenda-files))
+         #'string-equal)))
+
+(defun dotfiles/org-roam-toggle-agenda-tag ()
+  "Toggle the `agenda' filetag on the current Org-roam node."
+  (interactive)
+  (let* ((node (org-roam-populate (org-roam-node-at-point 'assert)))
+         (tags (org-roam-node-tags node))
+         (adding (not (member "agenda" tags))))
+    (if adding
+        (org-roam-tag-add '("agenda"))
+      (org-roam-tag-remove '("agenda")))
+    (save-buffer)
+    (when (fboundp 'org-roam-db-update-file)
+      (org-roam-db-update-file))
+    (dotfiles/org-roam-refresh-agenda-files)
+    (message "%s agenda tag for %s"
+             (if adding "Added" "Removed")
+             (org-roam-node-title node))))
+
+(defun dotfiles/org-roam--capture-template ()
+  "Return the Denote-style capture template used for typed roam notes."
+  '(("d" "default" plain "%?"
+     :target (file+head "${file}"
+                        "#+title: ${title}\n#+date: ${date}\n#+filetags: ${filetags}\n#+identifier: ${identifier}\n")
+     :unnarrowed t
+     :jump-to-captured t
+     :empty-lines-after 1
+     :finalize dotfiles/org-roam-capture-finalize)))
+
+(defun dotfiles/org-roam--read-keywords ()
+  "Prompt for optional comma-separated note keywords."
+  (dotfiles/org-roam-normalize-keywords
+   (read-string "Keywords (comma-separated, optional): ")))
+
+(defun dotfiles/org-roam--new-note-file (identifier title keywords)
+  "Return a unique file path for IDENTIFIER, TITLE, and KEYWORDS."
+  (let ((file (expand-file-name
+               (dotfiles/org-roam-build-filename identifier title keywords)
+               dotfiles/org-roam-directory)))
+    (if (file-exists-p file)
+        (dotfiles/org-roam--new-note-file
+         (dotfiles/org-roam-generate-identifier)
+         title
+         keywords)
+      file)))
+
+(defun dotfiles/org-roam-capture-with-type (type)
+  "Capture a new Org-roam note tagged with TYPE."
+  (interactive)
+  (let* ((type (dotfiles/org-roam-slugify-title type))
+         (title (string-trim (read-string (format "%s title: " (capitalize type)))))
+         (keywords (dotfiles/org-roam--read-keywords))
+         (identifier (dotfiles/org-roam-generate-identifier))
+         (filetags (dotfiles/org-roam-build-filetags type keywords))
+         (file (dotfiles/org-roam--new-note-file identifier title filetags))
+         (node (org-roam-node-create :title title :id identifier :file file))
+         (info (list :date (format-time-string "[%Y-%m-%d %a %H:%M]")
+                     :file file
+                     :filetags (org-make-tag-string filetags)
+                     :identifier identifier)))
+    (org-roam-capture-
+     :goto t
+     :info info
+     :node node
+     :templates (dotfiles/org-roam--capture-template))))
+
+(defun dotfiles/org-roam-capture-note ()
+  "Capture a new note."
+  (interactive)
+  (dotfiles/org-roam-capture-with-type "note"))
+
+(defun dotfiles/org-roam-capture-project ()
+  "Capture a new project note."
+  (interactive)
+  (dotfiles/org-roam-capture-with-type "project"))
+
+(defun dotfiles/org-roam-capture-topic ()
+  "Capture a new topic note."
+  (interactive)
+  (dotfiles/org-roam-capture-with-type "topic"))
+
+(defun dotfiles/org-roam-capture-contact ()
+  "Capture a new contact note."
+  (interactive)
+  (dotfiles/org-roam-capture-with-type "contact"))
+
+(defun dotfiles/org-roam-capture-secret ()
+  "Capture a new secret note."
+  (interactive)
+  (dotfiles/org-roam-capture-with-type "secret"))
+
+(defun dotfiles/org-roam-capture-dispatch ()
+  "Prompt for a note type and run its typed Org-roam capture command."
+  (interactive)
+  (pcase (completing-read "Roam note type: " dotfiles/org-roam-note-types nil t)
+    ("contact" (dotfiles/org-roam-capture-contact))
+    ("project" (dotfiles/org-roam-capture-project))
+    ("secret" (dotfiles/org-roam-capture-secret))
+    ("topic" (dotfiles/org-roam-capture-topic))
+    (_ (dotfiles/org-roam-capture-note))))
+
+(defun dotfiles/org-roam-capture-finalize ()
+  "Normalize front matter after an Org-roam capture completes."
+  (when-let* ((buffer (org-capture-get :buffer))
+              (file (buffer-file-name buffer))
+              (id (org-roam-capture--get :id)))
+    (with-current-buffer buffer
+      (when (and file
+                 (string-prefix-p (file-truename dotfiles/org-roam-directory)
+                                  (file-truename (file-name-directory file)))
+                 (not (string-prefix-p
+                       (file-truename (expand-file-name org-roam-dailies-directory org-roam-directory))
+                       (file-truename file))))
+        (let ((inhibit-read-only t))
+          (save-excursion
+            (goto-char (point-min))
+            (when (looking-at-p ":PROPERTIES:")
+              (let ((beg (point)))
+                (re-search-forward "^:END:\n?" nil t)
+                (delete-region beg (point))))
+            (goto-char (point-min))
+            (if (re-search-forward "^#\\+identifier:.*$" nil t)
+                (replace-match (concat "#+identifier: " id) t t)
+              (when (re-search-forward "^#\\+filetags:.*$" nil t)
+                (end-of-line)
+                (insert "\n#+identifier: " id)))
+            (when (re-search-forward "^:PROPERTIES:\n\\(?:.*\n\\)*?^:END:\n?" nil t)
+              (replace-match "" t t))
+            (goto-char (point-min))
+            (when (re-search-forward "^#\\+identifier:.*$" nil t)
+              (forward-line 1)
+              (unless (looking-at-p "^$")
+                (insert "\n"))
+              (insert ":PROPERTIES:\n:ID: " id "\n:END:\n")
+              (unless (looking-at-p "^$")
+                (insert "\n")))))
+        (save-buffer)
+        (when (fboundp 'org-roam-db-update-file)
+          (org-roam-db-update-file))
+        (dotfiles/org-roam-refresh-agenda-files)))))
+
+(use-package org
+  :ensure nil
+  :init
+  (setq org-directory dotfiles/org-directory)
+  (setq org-agenda-files dotfiles/org-agenda-base-files)
+  (setq org-default-notes-file dotfiles/org-inbox-file)
+  (setq org-ellipsis "...")
+  (setq org-hide-emphasis-markers t)
+  (setq org-log-done 'time)
+  (setq org-return-follows-link t)
+  (setq org-startup-indented t)
+  (setq org-src-fontify-natively t)
+  (setq org-src-tab-acts-natively t)
+  (setq org-capture-templates
+        (append
+         `(("t" "Task" entry
+            (file+headline ,dotfiles/org-inbox-file "Tasks")
+            "* TODO %?\n%U\n"))
+         (when (bound-and-true-p dotfiles-profile-work-p)
+           `(("w" "Work task" entry
+              (file+headline ,dotfiles/org-tasks-file "Work")
+              "* TODO %?\n%U\n")))))
+  :config
+  (add-hook 'org-mode-hook #'dotfiles/org-roam--enable-tag-completion)
+  (add-hook 'org-mode-hook #'variable-pitch-mode)
+  (add-hook 'org-mode-hook #'visual-line-mode)
+  (advice-add 'org-agenda :before #'dotfiles/org-roam-refresh-agenda-files))
+
+(use-package org-modern
+  :after org
+  :hook ((org-mode . org-modern-mode)
+         (org-agenda-finalize . org-modern-agenda)))
+
+(use-package org-roam
+  :after org
+  :init
+  (setq org-roam-v2-ack t)
+  :custom
+  (org-roam-directory dotfiles/org-roam-directory)
+  (org-roam-db-location (expand-file-name "org-roam.db" dotfiles/state-directory))
+  (org-roam-completion-everywhere t)
+  (org-roam-dailies-directory "daily/")
+  (org-roam-dailies-capture-templates
+   '(("d" "default" entry
+      "* %?"
+      :target (file+head "%<%Y-%m-%d>.org"
+                         "#+title: %<%Y-%m-%d>\n#+date: %<[%Y-%m-%d %a %H:%M]>\n#+filetags: :journal:\n")
+      :empty-lines-after 1)))
+  (org-roam-mode-sections
+   (list #'dotfiles/org-roam-grouped-backlinks-section
+         #'org-roam-reflinks-section))
+  (org-roam-buffer-postrender-functions
+   (list #'dotfiles/org-roam-buffer-preamble))
+  :config
+  (org-roam-db-autosync-mode 1)
+  (dotfiles/org-roam-refresh-agenda-files))
+
+(with-eval-after-load 'general
+  (dotfiles/leader-def
+    "e e" '(dotfiles-emacs-open-config :which-key "open config")
+    "e r" '(dotfiles-emacs-reload-config :which-key "reload config")
+    "e t" '(dotfiles-emacs-tangle-config :which-key "tangle config")
+    "f o" '(org-capture :which-key "org capture")
+    "f a" '(org-agenda :which-key "org agenda")
+    "n a" '(dotfiles/org-roam-toggle-agenda-tag :which-key "toggle agenda tag")
+    "n b" '(org-roam-buffer-toggle :which-key "toggle roam buffer")
+    "n c" '(dotfiles/org-roam-capture-dispatch :which-key "capture node")
+    "n m" '(dotfiles/org-roam-capture-contact :which-key "capture contact")
+    "n d" '(org-roam-dailies-capture-today :which-key "daily note")
+    "n f" '(org-roam-node-find :which-key "find node")
+    "n i" '(org-roam-node-insert :which-key "insert node")
+    "n n" '(dotfiles/org-roam-capture-note :which-key "capture note")
+    "n p" '(dotfiles/org-roam-capture-project :which-key "capture project")
+    "n s" '(dotfiles/org-roam-capture-secret :which-key "capture secret")
+    "n t" '(dotfiles/org-roam-capture-topic :which-key "capture topic")))
+#+end_src
