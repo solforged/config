@@ -1,3 +1,3 @@
 final: prev: {
-  musicctl = final.callPackage ../config/openclaw/plugins/music/package.nix { };
+  musicctl = final.callPackage ../modules/home/media/music/openclaw-plugin/package.nix { };
 }

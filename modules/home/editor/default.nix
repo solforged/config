@@ -1,0 +1,6 @@
+{
+  imports = [
+    ./emacs
+    ./nvim.nix
+  ];
+}

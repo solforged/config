@@ -158,9 +158,9 @@ The tracked pre-commit hook runs the same plaintext scan used by
 - `hosts/`: machine definitions grouped by platform
 - `profiles/`: reusable persona and capability bundles
 - `modules/`: shared, platform, and Home Manager modules
-- `config/`: checked-in application config mounted by Home Manager
-  including literate Emacs sources under `config/emacs/` that are tangled at
-  build time when a host selects `dotfiles.apps.editor = "emacs"`
+- `config/`: shared checked-in application config mounted by Home Manager
+  while domain-owned assets such as the Emacs literate config and music
+  OpenClaw skill live next to the modules that consume them
 - `bin/rig`: wrapper for build, deploy, check, format, update, and secrets flows
 - `pkgs/`, `overlays/`: custom packages and overlays
 - `secrets/`: encrypted files safe to commit
@@ -187,11 +187,11 @@ Current profile usage:
 
 Profile files add reusable capability slices. A few examples:
 
-- [profiles/base.nix](/Users/admin/.local/share/dotfiles/profiles/base.nix):
+- [profiles/base/default.nix](/Users/admin/.local/share/dotfiles/profiles/base/default.nix):
   common CLI packages
-- [profiles/development.nix](/Users/admin/.local/share/dotfiles/profiles/development.nix):
+- [profiles/development/default.nix](/Users/admin/.local/share/dotfiles/profiles/development/default.nix):
   development-specific tooling and configuration
-- [profiles/personal.nix](/Users/admin/.local/share/dotfiles/profiles/personal.nix):
+- [profiles/personal/default.nix](/Users/admin/.local/share/dotfiles/profiles/personal/default.nix):
   personal packages and GUI apps
 
 When adding behavior that should apply to more than one host, prefer a profile
@@ -234,7 +234,7 @@ tailnet through Tailscale `serve`, so it never has to listen on LAN or public
 interfaces.
 
 - Checked-in OpenClaw documents live in
-  [config/openclaw/documents](/Users/admin/.local/share/dotfiles/config/openclaw/documents).
+  [hosts/darwin/sigil/openclaw/documents](/Users/admin/.local/share/dotfiles/hosts/darwin/sigil/openclaw/documents).
 - The Nix-managed bootstrap docs (`AGENTS.md`, `SOUL.md`, `TOOLS.md`,
   `IDENTITY.md`) are copied into the live workspace as regular files during
   activation because OpenClaw ignores workspace symlinks that resolve outside
@@ -242,7 +242,7 @@ interfaces.
 - Host-scoped OpenClaw secrets decrypt to
   `$XDG_STATE_HOME/dotfiles/secrets/openclaw` on `sigil`.
 - The host module is
-  [hosts/darwin/sigil/openclaw.nix](/Users/admin/.local/share/dotfiles/hosts/darwin/sigil/openclaw.nix).
+  [hosts/darwin/sigil/services/openclaw.nix](/Users/admin/.local/share/dotfiles/hosts/darwin/sigil/services/openclaw.nix).
 - Keep identifying or environment-specific OpenClaw files local in the
   workspace instead of committing them. Typical local-only files are
   `USER.md`, research-profile notes, and detailed `TOOLS.md` content.
@@ -301,7 +301,7 @@ Manual smoke test after `./bin/rig deploy sigil`:
   response succeeds
 - `sigil` intentionally keeps the OpenClaw model config on OpenAI only; the
   Claude and Gemini fallback entries in
-  [hosts/darwin/sigil/openclaw.nix](/Users/admin/.local/share/dotfiles/hosts/darwin/sigil/openclaw.nix)
+  [hosts/darwin/sigil/services/openclaw.nix](/Users/admin/.local/share/dotfiles/hosts/darwin/sigil/services/openclaw.nix)
   are commented out
 
 ## Music foundation on sigil
@@ -321,7 +321,7 @@ an optional client instead of the system of record.
 - `Roon` support is bootstrap-only for now. `musicctl roon doctor` validates
   local assumptions but does not automate `roon-tui`.
 - The OpenClaw skill under
-  [config/openclaw/plugins/music](/Users/admin/.local/share/dotfiles/config/openclaw/plugins/music)
+  [modules/home/media/music/openclaw-plugin](/Users/admin/.local/share/dotfiles/modules/home/media/music/openclaw-plugin)
   calls `musicctl` only. It does not import, retag, move files, or control
   playback.
 

@@ -1,0 +1,43 @@
+#+title: nix
+#+property: header-args:emacs-lisp :comments no :results none
+
+* nix
+
+#+begin_src emacs-lisp
+(defconst dotfiles/nix-lsp-command
+  (cond
+   ((executable-find "nil") '("nil"))
+   ((executable-find "nixd") '("nixd")))
+  "Preferred Nix language server command for Eglot.")
+
+(defun dotfiles/nix-format-buffer ()
+  "Format the current buffer with nixfmt."
+  (when-let ((nixfmt (executable-find "nixfmt")))
+    (let ((point (point))
+          (tmpfile (make-temp-file "dotfiles-nixfmt-" nil ".nix"))
+          (stderr (get-buffer-create "*nixfmt stderr*")))
+      (unwind-protect
+          (progn
+            (write-region nil nil tmpfile nil 'silent)
+            (with-current-buffer stderr
+              (erase-buffer))
+            (if (zerop (call-process nixfmt nil stderr nil tmpfile))
+                (progn
+                  (erase-buffer)
+                  (insert-file-contents tmpfile nil nil nil t)
+                  (goto-char (min point (point-max))))
+              (display-buffer stderr)
+              (error "nixfmt failed; see %s" (buffer-name stderr))))
+        (delete-file tmpfile)))))
+
+(defun dotfiles/nix-mode-setup ()
+  "Configure Nix editing support for the current buffer."
+  (add-hook 'before-save-hook #'dotfiles/nix-format-buffer nil t)
+  (when dotfiles/nix-lsp-command
+    (eglot-ensure)))
+
+(when dotfiles/nix-lsp-command
+  (add-to-list 'eglot-server-programs `(nix-mode . ,dotfiles/nix-lsp-command)))
+
+(add-hook 'nix-mode-hook #'dotfiles/nix-mode-setup)
+#+end_src

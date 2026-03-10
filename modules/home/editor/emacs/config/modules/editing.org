@@ -1,0 +1,133 @@
+#+title: editing
+#+property: header-args:emacs-lisp :comments no :results none
+
+* editing
+
+#+begin_src emacs-lisp
+(setq evil-want-C-i-jump nil
+      evil-want-C-u-scroll t
+      evil-want-integration t
+      evil-want-keybinding nil)
+
+(require 'undo-fu)
+(require 'evil)
+(evil-mode 1)
+
+(when (fboundp 'evil-set-undo-system)
+  (evil-set-undo-system 'undo-fu))
+
+(require 'evil-collection)
+(evil-collection-init)
+
+(require 'general)
+(general-evil-setup t)
+
+(defvar dotfiles--file-home-dwim-enabled nil
+  "Enable Doom-style home rebasing for `dotfiles/find-file-dwim'.")
+
+(defvar-local dotfiles--file-name-initial-contents nil
+  "Initial minibuffer contents captured for filename completion prompts.")
+
+(defun dotfiles/capture-file-name-minibuffer-state ()
+  "Remember the initial contents for filename completion prompts."
+  (when minibuffer-completing-file-name
+    (setq-local dotfiles--file-name-initial-contents
+                (minibuffer-contents-no-properties))))
+
+(defun dotfiles/minibuffer-file-home-dwim ()
+  "Rebase filename completion to the home directory when the prompt is empty."
+  (interactive)
+  (if (and dotfiles--file-home-dwim-enabled
+           minibuffer-completing-file-name
+           (string=
+            (minibuffer-contents-no-properties)
+            (or dotfiles--file-name-initial-contents "")))
+      (progn
+        (setq default-directory (expand-file-name "~/"))
+        (delete-minibuffer-contents)
+        (insert "~/"))
+    (self-insert-command 1)))
+
+(define-key minibuffer-local-filename-completion-map
+            (kbd "~")
+            #'dotfiles/minibuffer-file-home-dwim)
+
+(defun dotfiles/find-file-dwim ()
+  "Run `find-file` with a home-directory shortcut on initial `~`."
+  (interactive)
+  (let ((dotfiles--file-home-dwim-enabled t))
+    (minibuffer-with-setup-hook
+        #'dotfiles/capture-file-name-minibuffer-state
+      (call-interactively #'find-file))))
+
+(defun dotfiles/format-buffer ()
+  "Format the current buffer using the configured formatter."
+  (interactive)
+  (cond
+   ((derived-mode-p 'nix-mode)
+    (dotfiles/nix-format-buffer))
+   ((fboundp 'eglot-format)
+    (eglot-format))
+   (t
+    (user-error "No formatter configured for %s" major-mode))))
+
+(general-create-definer dotfiles/leader
+  :states '(normal visual motion emacs)
+  :keymaps 'override
+  :prefix "SPC"
+  :global-prefix "C-SPC")
+
+(dotfiles/leader
+  "." '(dotfiles/find-file-dwim :wk "find file")
+  "TAB" '(tab-bar-switch-to-recent-tab :wk "last tab")
+  "b" '(:ignore t :wk "buffers")
+  "bb" '(consult-buffer :wk "switch")
+  "bd" '(kill-current-buffer :wk "kill")
+  "br" '(revert-buffer :wk "revert")
+  "c" '(:ignore t :wk "code")
+  "ca" '(eglot-code-actions :wk "code action")
+  "cf" '(dotfiles/format-buffer :wk "format")
+  "cr" '(eglot-rename :wk "rename")
+  "e" '(:ignore t :wk "errors")
+  "eb" '(flymake-show-buffer-diagnostics :wk "buffer")
+  "en" '(flymake-goto-next-error :wk "next")
+  "ep" '(flymake-goto-prev-error :wk "previous")
+  "f" '(:ignore t :wk "files")
+  "ff" '(dotfiles/find-file-dwim :wk "find")
+  "fr" '(consult-recent-file :wk "recent")
+  "fs" '(save-buffer :wk "save")
+  "g" '(:ignore t :wk "git")
+  "gb" '(magit-blame-addition :wk "blame")
+  "gs" '(magit-status :wk "status")
+  "h" '(:ignore t :wk "help")
+  "hf" '(describe-function :wk "function")
+  "hv" '(describe-variable :wk "variable")
+  "o" '(:ignore t :wk "org")
+  "oa" '(org-agenda :wk "agenda")
+  "oc" '(org-capture :wk "capture")
+  "of" '((lambda () (interactive) (find-file org-default-notes-file)) :wk "inbox")
+  "p" '(:ignore t :wk "project")
+  "pb" '(consult-project-buffer :wk "buffers")
+  "pf" '(project-find-file :wk "find file")
+  "pp" '(project-switch-project :wk "switch")
+  "ps" '(project-switch-to-buffer :wk "switch buffer")
+  "q" '(:ignore t :wk "quit")
+  "qq" '(delete-frame :wk "quit frame")
+  "s" '(:ignore t :wk "search")
+  "sb" '(consult-bookmark :wk "bookmark")
+  "si" '(consult-imenu :wk "imenu")
+  "sl" '(consult-line :wk "line")
+  "sp" '(consult-ripgrep :wk "ripgrep")
+  "t" '(:ignore t :wk "toggles")
+  "tt" '(consult-theme :wk "theme")
+  "tw" '(visual-line-mode :wk "wrap")
+  "w" '(:ignore t :wk "windows")
+  "w-" '(split-window-below :wk "split below")
+  "w/" '(split-window-right :wk "split right")
+  "wd" '(delete-window :wk "delete")
+  "wh" '(windmove-left :wk "left")
+  "wj" '(windmove-down :wk "down")
+  "wk" '(windmove-up :wk "up")
+  "wl" '(windmove-right :wk "right")
+  "wo" '(delete-other-windows :wk "only"))
+#+end_src

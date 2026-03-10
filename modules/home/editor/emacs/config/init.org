@@ -1,0 +1,35 @@
+#+title: emacs init
+#+property: header-args:emacs-lisp :comments no :results none
+
+* boot
+
+#+begin_src emacs-lisp
+(add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory) t)
+
+(defconst dotfiles/modules
+  '("core"
+    "appearance"
+    "chrome"
+    "completion"
+    "editing"
+    "projects"
+    "lsp"
+    "org"
+    "lang-nix"
+    "lang-go"
+    "lang-rust"
+    "lang-web"
+    "startup")
+  "Ordered list of dotfiles Emacs modules to load.")
+
+(defun dotfiles/load-module (name)
+  "Load a local module called NAME from the local lisp directory."
+  (load
+   (expand-file-name
+    (format "dotfiles-%s" name)
+    (expand-file-name "lisp" user-emacs-directory))
+   nil
+   'nomessage))
+
+(mapc #'dotfiles/load-module dotfiles/modules)
+#+end_src

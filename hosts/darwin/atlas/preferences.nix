@@ -1,0 +1,25 @@
+{
+  dotfiles = {
+    profiles = {
+      base.enable = true;
+      desktop.enable = true;
+      development.enable = true;
+      work.enable = true;
+    };
+
+    apps = {
+      shell = "zsh";
+      editor = "nvim";
+      terminal = "ghostty";
+      browser = "brave";
+      passwordManager = "proton-pass";
+    };
+
+    features = {
+      homebrew.enable = true;
+      dock.enable = false;
+      touchIdSudo.enable = true;
+      capsToCtrl.enable = false;
+    };
+  };
+}

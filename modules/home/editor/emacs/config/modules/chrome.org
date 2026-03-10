@@ -1,0 +1,141 @@
+#+title: chrome
+#+property: header-args:emacs-lisp :comments no :results none
+
+* chrome
+
+#+begin_src emacs-lisp
+(require 'project)
+(require 'subr-x)
+
+(setq split-height-threshold nil
+      split-width-threshold 120)
+
+(when (eq system-type 'darwin)
+  (setq mac-command-modifier 'super
+        mac-option-modifier 'meta
+        ns-command-modifier 'super
+        ns-option-modifier 'meta
+        select-enable-clipboard t))
+
+(column-number-mode 1)
+(delete-selection-mode 1)
+(electric-pair-mode 1)
+(global-auto-revert-mode 1)
+(pixel-scroll-precision-mode 1)
+(recentf-mode 1)
+(let ((inhibit-message t))
+  (repeat-mode 1))
+(save-place-mode 1)
+(savehist-mode 1)
+(show-paren-mode 1)
+(tab-bar-mode 1)
+(winner-mode 1)
+(window-divider-mode 1)
+
+(setq recentf-max-saved-items 200
+      savehist-additional-variables '(kill-ring mark-ring search-ring regexp-search-ring)
+      tab-bar-close-button-show nil
+      tab-bar-new-button-show nil
+      tab-bar-separator "  "
+      window-divider-default-places 'right-only
+      window-divider-default-right-width 12)
+
+(set-fringe-mode 12)
+
+(add-hook 'prog-mode-hook #'hl-line-mode)
+(add-hook 'prog-mode-hook (lambda () (setq-local display-line-numbers 'relative)))
+(add-hook 'prog-mode-hook #'display-line-numbers-mode)
+(dolist (hook '(eshell-mode-hook org-mode-hook shell-mode-hook term-mode-hook))
+  (add-hook hook (lambda () (display-line-numbers-mode 0))))
+
+(when (fboundp 'treesit-available-p)
+  (setq treesit-font-lock-level 4))
+
+(defun dotfiles/quiet-nonediting-buffer ()
+  "Tone down editing affordances in presentation-oriented buffers."
+  (hl-line-mode -1)
+  (setq-local cursor-type nil)
+  (setq-local header-line-format nil))
+
+(defun dotfiles/current-project-name ()
+  "Return the current project name or nil."
+  (when-let ((project (project-current nil)))
+    (file-name-nondirectory
+     (directory-file-name
+      (project-root project)))))
+
+(defun dotfiles/mode-line-state ()
+  "Return a short buffer state indicator."
+  (cond
+   (buffer-read-only "RO")
+   ((buffer-modified-p) "**")
+   (t "  ")))
+
+(defun dotfiles/mode-line-branch ()
+  "Return the current VC branch name or nil."
+  (when vc-mode
+    (string-trim
+     (replace-regexp-in-string
+      "\\`[: -]+"
+      ""
+      (format-mode-line '(vc-mode vc-mode))))))
+
+(defun dotfiles/join-segments (&rest segments)
+  "Join non-empty SEGMENTS with restrained spacing."
+  (string-join
+   (delq nil
+         (mapcar
+          (lambda (segment)
+            (when (and segment (not (string= segment "")))
+              segment))
+          segments))
+   "   "))
+
+(defun dotfiles/align-mode-line (left right)
+  "Return a mode line with LEFT on the left and RIGHT right-aligned."
+  (let ((reserved-width (max 1 (string-width right))))
+    (concat
+     " "
+     left
+     (propertize
+      " "
+      'display
+      `((space :align-to (- right ,(1+ reserved-width)))))
+     right
+     " ")))
+
+(defun dotfiles/render-mode-line ()
+  "Render the minimalist mode line."
+  (let ((left
+         (dotfiles/join-segments
+          (propertize (dotfiles/mode-line-state) 'face 'shadow)
+          (propertize "%b" 'face 'mode-line-buffer-id)
+          (when-let ((project-name (dotfiles/current-project-name)))
+            (propertize project-name 'face 'shadow))))
+        (right
+         (dotfiles/join-segments
+          (format-mode-line mode-name)
+          (when-let ((branch (dotfiles/mode-line-branch)))
+            (propertize branch 'face 'shadow))
+          (format-mode-line "%l:%c"))))
+    (dotfiles/align-mode-line
+     (format-mode-line left)
+     (format-mode-line right))))
+
+(defun dotfiles/render-header-line ()
+  "Render the contextual header line."
+  (when (or buffer-file-name default-directory)
+    (let ((path
+           (abbreviate-file-name
+            (or (and buffer-file-name (file-name-directory buffer-file-name))
+                default-directory))))
+      (concat
+       " "
+       (propertize path 'face 'header-line)
+       " "))))
+
+(setq-default mode-line-format '((:eval (dotfiles/render-mode-line)))
+              header-line-format '((:eval (dotfiles/render-header-line))))
+
+(add-hook 'help-mode-hook #'dotfiles/quiet-nonediting-buffer)
+#+end_src

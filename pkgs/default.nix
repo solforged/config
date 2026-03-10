@@ -1,4 +1,4 @@
 { pkgs }:
 {
-  musicctl = pkgs.callPackage ../config/openclaw/plugins/music/package.nix { };
+  musicctl = pkgs.callPackage ../modules/home/media/music/openclaw-plugin/package.nix { };
 }

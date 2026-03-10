@@ -1,0 +1,84 @@
+#+title: early-init
+#+property: header-args:emacs-lisp :comments no :results none
+
+* startup
+
+#+begin_src emacs-lisp
+(defun dotfiles/getenv-string (name &optional fallback)
+  "Return environment variable NAME or FALLBACK when unset."
+  (let ((value (getenv name)))
+    (if (and value (not (string= value "")))
+        value
+      fallback)))
+
+(defun dotfiles/getenv-number (name fallback)
+  "Return environment variable NAME as a number or FALLBACK when unset."
+  (let ((value (getenv name)))
+    (if (and value (not (string= value "")))
+        (string-to-number value)
+      fallback)))
+
+(defun dotfiles/early-theme-palette (theme-name)
+  "Return an early frame palette for THEME-NAME."
+  (cond
+   ((member theme-name '("modus-vivendi" "modus-vivendi-tinted"))
+    '((background . "#0d0e1c")
+      (foreground . "#e0e6f0")
+      (cursor . "#7f9fdf")))
+   ((member theme-name '("modus-operandi" "modus-operandi-tinted"))
+    '((background . "#fbf7f0")
+      (foreground . "#282828")
+      (cursor . "#111111")))
+   ((member theme-name '("doom-one-light"))
+    '((background . "#fafafa")
+      (foreground . "#383a42")
+      (cursor . "#111111")))
+   (t
+    '((background . "#1a1b26")
+      (foreground . "#c0caf5")
+      (cursor . "#c0caf5")))))
+
+(let* ((fixed-pitch-family
+        (dotfiles/getenv-string "DOTFILES_EMACS_FIXED_PITCH_FAMILY" "Monospace"))
+       (fixed-pitch-height
+        (dotfiles/getenv-number "DOTFILES_EMACS_FIXED_PITCH_HEIGHT" 110))
+       (theme-name
+        (dotfiles/getenv-string "DOTFILES_EMACS_THEME_NAME" ""))
+       (palette
+        (dotfiles/early-theme-palette theme-name))
+       (frame-parameters
+        `((background-color . ,(alist-get 'background palette))
+          (cursor-color . ,(alist-get 'cursor palette))
+          (foreground-color . ,(alist-get 'foreground palette))
+          (height . 60)
+          (width . 148))))
+  (setq default-frame-alist
+        (append
+         frame-parameters
+         default-frame-alist)
+        initial-frame-alist default-frame-alist))
+
+(setq package-enable-at-startup nil
+      frame-inhibit-implied-resize t
+      frame-resize-pixelwise t
+      inhibit-startup-message t
+      inhibit-startup-screen t
+      initial-scratch-message nil
+      native-comp-jit-compilation nil
+      native-comp-async-report-warnings-errors 'silent
+      ring-bell-function #'ignore
+      use-dialog-box nil
+      visible-cursor nil)
+
+;; Package-native .eln files from the Nix package set have been unstable on macOS.
+(let ((filtered-paths nil))
+  (dolist (path native-comp-eln-load-path)
+    (unless (string-match-p "/emacs-packages-deps/share/emacs/native-lisp/?$" path)
+      (push path filtered-paths)))
+  (setq native-comp-eln-load-path (nreverse filtered-paths)))
+
+(blink-cursor-mode -1)
+(menu-bar-mode -1)
+(scroll-bar-mode -1)
+(tool-bar-mode -1)
+#+end_src

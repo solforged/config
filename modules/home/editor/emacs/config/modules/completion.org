@@ -1,0 +1,51 @@
+#+title: completion
+#+property: header-args:emacs-lisp :comments no :results none
+
+* completion
+
+#+begin_src emacs-lisp
+(require 'vertico)
+(vertico-mode 1)
+
+(require 'vertico-directory)
+(define-key vertico-map (kbd "RET") #'vertico-directory-enter)
+(define-key vertico-map (kbd "DEL") #'vertico-directory-delete-char)
+(define-key vertico-map (kbd "M-DEL") #'vertico-directory-delete-word)
+
+(require 'rfn-eshadow)
+(add-hook 'rfn-eshadow-update-overlay-hook #'vertico-directory-tidy)
+
+(require 'orderless)
+(setq completion-styles '(orderless basic)
+      completion-category-defaults nil
+      completion-category-overrides '((file (styles partial-completion))))
+
+(setq completion-ignore-case t
+      read-buffer-completion-ignore-case t
+      read-file-name-completion-ignore-case t)
+
+(require 'marginalia)
+(marginalia-mode 1)
+
+(require 'consult)
+(setq consult-narrow-key "<"
+      register-preview-delay 0.5
+      register-preview-function #'consult-register-format
+      xref-show-definitions-function #'consult-xref
+      xref-show-xrefs-function #'consult-xref)
+
+(advice-add #'register-preview :override #'consult-register-window)
+
+(require 'embark)
+(require 'embark-consult)
+(setq prefix-help-command #'embark-prefix-help-command)
+(global-set-key (kbd "C-.") #'embark-act)
+(global-set-key (kbd "C-;") #'embark-dwim)
+(global-set-key (kbd "C-h B") #'embark-bindings)
+
+(add-hook 'embark-collect-mode-hook #'consult-preview-at-point-mode)
+
+(require 'tempel)
+(global-set-key (kbd "M-+") #'tempel-complete)
+(global-set-key (kbd "M-*") #'tempel-insert)
+#+end_src

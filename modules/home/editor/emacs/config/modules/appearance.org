@@ -1,0 +1,219 @@
+#+title: appearance
+#+property: header-args:emacs-lisp :comments no :results none
+
+* appearance
+
+#+begin_src emacs-lisp
+(require 'color)
+(require 'seq)
+
+(defun dotfiles/getenv-string (name &optional fallback)
+  "Return environment variable NAME or FALLBACK when unset."
+  (let ((value (getenv name)))
+    (if (and value (not (string= value "")))
+        value
+      fallback)))
+
+(defun dotfiles/getenv-number (name fallback)
+  "Return environment variable NAME as a number or FALLBACK when unset."
+  (let ((value (getenv name)))
+    (if (and value (not (string= value "")))
+        (string-to-number value)
+      fallback)))
+
+(defconst dotfiles/fixed-pitch-font
+  (dotfiles/getenv-string "DOTFILES_EMACS_FIXED_PITCH_FAMILY" "Monospace"))
+(defconst dotfiles/fixed-pitch-height
+  (dotfiles/getenv-number "DOTFILES_EMACS_FIXED_PITCH_HEIGHT" 110))
+(defconst dotfiles/variable-pitch-font
+  (dotfiles/getenv-string "DOTFILES_EMACS_VARIABLE_PITCH_FAMILY" nil))
+(defconst dotfiles/variable-pitch-height
+  (dotfiles/getenv-number "DOTFILES_EMACS_VARIABLE_PITCH_HEIGHT" 1.05))
+(defconst dotfiles/theme-name
+  (dotfiles/getenv-string "DOTFILES_EMACS_THEME_NAME" nil))
+(defconst dotfiles/line-spacing
+  (dotfiles/getenv-number "DOTFILES_EMACS_LINE_SPACING" 0.12))
+
+(defconst dotfiles/font-aliases
+  '(("IBM Plex Sans" "IBM Plex Sans" "IBM Plex Sans Text" "IBM PlexSans")
+    ("BlexMono Nerd Font" "BlexMono Nerd Font" "BlexMono Nerd Font Mono" "IBM Plex Mono" "IBM PlexMono")
+    ("JetBrainsMono Nerd Font" "JetBrainsMono Nerd Font" "JetBrainsMono Nerd Font Mono")))
+
+(defface dotfiles-startup-title
+  '((t :inherit variable-pitch :weight light :height 2.2))
+  "Face used for the startup title.")
+
+(defface dotfiles-startup-subtitle
+  '((t :inherit shadow :height 1.0))
+  "Face used for the startup subtitle.")
+
+(defface dotfiles-startup-section
+  '((t :inherit variable-pitch :weight semibold :height 1.15))
+  "Face used for startup section headings.")
+
+(defface dotfiles-startup-action
+  '((t :inherit variable-pitch :weight semibold))
+  "Face used for startup action buttons.")
+
+(defface dotfiles-startup-path
+  '((t :inherit default))
+  "Face used for startup path entries.")
+
+(defface dotfiles-startup-muted
+  '((t :inherit shadow))
+  "Face used for startup helper text.")
+
+(defun dotfiles/font-installed-p (font-name)
+  "Return non-nil when FONT-NAME is available."
+  (and font-name
+       (find-font (font-spec :name font-name))))
+
+(defun dotfiles/font-candidates (font-name)
+  "Return preferred candidate names for FONT-NAME."
+  (or (cdr (assoc font-name dotfiles/font-aliases))
+      (and font-name (list font-name))
+      nil))
+
+(defun dotfiles/resolve-font-name (font-name)
+  "Return the first installed font variant for FONT-NAME."
+  (seq-find #'dotfiles/font-installed-p (dotfiles/font-candidates font-name)))
+
+(defun dotfiles/dark-background-p ()
+  "Return non-nil when the current default background is dark."
+  (eq (frame-parameter nil 'background-mode) 'dark))
+
+(defun dotfiles/mix-colors (color-a color-b alpha)
+  "Mix COLOR-A into COLOR-B using ALPHA."
+  (let ((rgb-a (and color-a (color-name-to-rgb color-a)))
+        (rgb-b (and color-b (color-name-to-rgb color-b))))
+    (if (and rgb-a rgb-b)
+        (pcase-let ((`(,r1 ,g1 ,b1) rgb-a)
+                    (`(,r2 ,g2 ,b2) rgb-b))
+          (color-rgb-to-hex
+           (+ (* alpha r1) (* (- 1 alpha) r2))
+           (+ (* alpha g1) (* (- 1 alpha) g2))
+           (+ (* alpha b1) (* (- 1 alpha) b2))
+           2))
+      (or color-a color-b "#202020"))))
+
+(defun dotfiles/subtle-surface (&optional alpha)
+  "Return a subdued surface color derived from the active theme."
+  (let* ((base (face-background 'default nil t))
+         (base
+          (if (or (null base) (equal base "unspecified-bg"))
+              (if (dotfiles/dark-background-p) "#11111b" "#f4f4f4")
+            base))
+         (overlay (if (dotfiles/dark-background-p) "#ffffff" "#000000")))
+    (dotfiles/mix-colors overlay base (or alpha 0.06))))
+
+(defun dotfiles/accent-color ()
+  "Return a restrained accent color from the active theme."
+  (or (face-foreground 'mode-line-buffer-id nil t)
+      (face-foreground 'font-lock-function-name-face nil t)
+      (face-foreground 'link nil t)
+      (face-foreground 'default nil t)))
+
+(defun dotfiles/apply-fonts (&optional frame)
+  "Apply the preferred dotfiles fonts to FRAME or the selected frame."
+  (let ((fixed-font (dotfiles/resolve-font-name dotfiles/fixed-pitch-font))
+        (variable-font (dotfiles/resolve-font-name dotfiles/variable-pitch-font)))
+    (with-selected-frame (or frame (selected-frame))
+      (when fixed-font
+        (set-face-attribute 'default nil :font fixed-font :height dotfiles/fixed-pitch-height)
+        (set-face-attribute 'fixed-pitch nil :font fixed-font :height 1.0))
+      (if variable-font
+          (set-face-attribute 'variable-pitch nil :font variable-font :height dotfiles/variable-pitch-height)
+        (set-face-attribute 'variable-pitch nil :inherit 'default :height 1.0)))))
+ 
+(defun dotfiles/apply-theme ()
+  "Load the configured Emacs theme when one is declared."
+  (when dotfiles/theme-name
+    (let* ((theme (intern dotfiles/theme-name))
+           (theme-file (format "%s-theme" dotfiles/theme-name))
+           (fallback-theme 'modus-vivendi-tinted))
+      (unless (eq theme (car custom-enabled-themes))
+        (mapc #'disable-theme custom-enabled-themes)
+        (condition-case nil
+            (load-theme theme t)
+          (error
+           (when (or (custom-theme-p fallback-theme)
+                     (locate-file
+                      (format "%s-theme.el" fallback-theme)
+                      (custom-theme--load-path)
+                      '("" ".elc")))
+             (load-theme fallback-theme t))))))))
+
+(defun dotfiles/apply-appearance-faces ()
+  "Apply the shared face rules for the minimalist UI."
+  (let* ((surface (dotfiles/subtle-surface))
+         (surface-strong (dotfiles/subtle-surface 0.1))
+         (accent (dotfiles/accent-color))
+         (foreground (face-foreground 'default nil t))
+         (muted (face-foreground 'shadow nil t)))
+    (setq-default line-spacing dotfiles/line-spacing)
+    (set-face-attribute 'cursor nil :background accent)
+    (set-face-attribute 'fringe nil :inherit 'default :background nil)
+    (set-face-attribute 'line-number nil :inherit '(shadow fixed-pitch) :height 0.95 :background nil)
+    (set-face-attribute 'line-number-current-line nil :inherit '(line-number) :weight 'medium :foreground foreground)
+    (set-face-attribute 'minibuffer-prompt nil :weight 'semibold :foreground accent)
+    (set-face-attribute 'mode-line nil :box nil :height 0.95 :background surface :foreground foreground)
+    (set-face-attribute 'mode-line-inactive nil :box nil :height 0.95 :background surface :foreground muted)
+    (set-face-attribute 'header-line nil :inherit '(default variable-pitch) :box nil :height 0.95 :background surface :foreground muted)
+    (set-face-attribute 'tab-bar nil :inherit 'default :box nil :background surface :foreground muted)
+    (set-face-attribute 'tab-bar-tab nil :inherit '(fixed-pitch) :weight 'semibold :background surface-strong :foreground foreground)
+    (set-face-attribute 'tab-bar-tab-inactive nil :inherit '(fixed-pitch) :background surface :foreground muted)
+    (set-face-attribute 'window-divider nil :inherit 'shadow :foreground surface-strong)
+    (set-face-attribute 'link nil :underline nil :weight 'semibold :foreground accent)
+    (set-face-attribute 'button nil :inherit 'link)
+    (set-face-attribute 'dotfiles-startup-title nil :foreground foreground :weight 'light :height 2.4)
+    (set-face-attribute 'dotfiles-startup-subtitle nil :foreground muted :inherit '(dotfiles-startup-subtitle variable-pitch))
+    (set-face-attribute 'dotfiles-startup-section nil :foreground foreground :inherit '(dotfiles-startup-section variable-pitch))
+    (set-face-attribute 'dotfiles-startup-action nil :foreground accent)
+    (set-face-attribute 'dotfiles-startup-path nil :foreground foreground :inherit '(fixed-pitch))
+    (set-face-attribute 'dotfiles-startup-muted nil :foreground muted))
+  (set-face-attribute 'window-divider-first-pixel nil :inherit 'window-divider)
+  (set-face-attribute 'window-divider-last-pixel nil :inherit 'window-divider)
+  (set-face-attribute 'vertical-border nil :inherit 'window-divider))
+
+(defun dotfiles/apply-prose-faces ()
+  "Apply prose-oriented face overrides."
+  (when (featurep 'org)
+    (set-face-attribute 'org-block nil :inherit '(fixed-pitch))
+    (set-face-attribute 'org-code nil :inherit '(shadow fixed-pitch))
+    (set-face-attribute 'org-document-title nil :inherit '(variable-pitch) :weight 'light :height 1.5)
+    (set-face-attribute 'org-document-info-keyword nil :inherit '(shadow fixed-pitch))
+    (set-face-attribute 'org-level-1 nil :inherit '(variable-pitch) :weight 'semibold :height 1.25)
+    (set-face-attribute 'org-level-2 nil :inherit '(variable-pitch) :weight 'semibold :height 1.15)
+    (set-face-attribute 'org-level-3 nil :inherit '(variable-pitch) :weight 'semibold :height 1.08)
+    (set-face-attribute 'org-level-4 nil :inherit '(variable-pitch) :weight 'medium)
+    (set-face-attribute 'org-meta-line nil :inherit '(font-lock-comment-face fixed-pitch))
+    (set-face-attribute 'org-property-value nil :inherit '(fixed-pitch))
+    (set-face-attribute 'org-special-keyword nil :inherit '(font-lock-comment-face fixed-pitch))
+    (set-face-attribute 'org-table nil :inherit '(fixed-pitch))
+    (set-face-attribute 'org-tag nil :inherit '(shadow fixed-pitch) :weight 'semibold)
+    (set-face-attribute 'org-verbatim nil :inherit '(shadow fixed-pitch))))
+
+(defun dotfiles/refresh-frame-appearance (&optional frame)
+  "Refresh fonts and face overrides for FRAME or the selected frame."
+  (with-selected-frame (or frame (selected-frame))
+    (dotfiles/apply-fonts)
+    (dotfiles/apply-appearance-faces)
+    (dotfiles/apply-prose-faces)))
+
+(require 'spacious-padding)
+(setq spacious-padding-widths
+      '(:internal-border-width 24
+        :header-line-width 4
+        :mode-line-width 6
+        :right-divider-width 24
+        :scroll-bar-width 0))
+
+(dotfiles/apply-theme)
+(dotfiles/refresh-frame-appearance)
+(spacious-padding-mode 1)
+(add-hook 'after-load-theme-hook #'dotfiles/apply-appearance-faces)
+(add-hook 'after-load-theme-hook #'dotfiles/apply-prose-faces)
+(with-eval-after-load 'org
+  (dotfiles/apply-prose-faces))
+(add-hook 'after-make-frame-functions #'dotfiles/refresh-frame-appearance)
+#+end_src
