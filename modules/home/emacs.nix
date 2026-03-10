@@ -13,6 +13,7 @@ let
     epkgs: with epkgs; [
       consult
       dashboard
+      doom-themes
       embark
       embark-consult
       evil
@@ -21,7 +22,6 @@ let
       magit
       marginalia
       mixed-pitch
-      modus-themes
       mood-line
       nerd-icons
       nix-mode
@@ -82,6 +82,8 @@ let
         pkgs.findutils
         pkgs.git
         pkgs.gnugrep
+        pkgs.nil
+        pkgs.nixfmt-rfc-style
         pkgs.ripgrep
       ]
       ++ cfg.packages.home
@@ -94,7 +96,11 @@ let
 in
 {
   config = lib.mkIf (cfg.apps.editor == "emacs") {
-    home.packages = [ emacsPackage ];
+    home.packages = [
+      emacsPackage
+      pkgs.nil
+      pkgs.nixfmt-rfc-style
+    ];
 
     xdg.configFile."emacs" = {
       source = emacsHome;

@@ -36,6 +36,7 @@ in
         ./prompt.nix
         ./ssh.nix
         ./zsh.nix
+        ./music.nix
         ./ghostty.nix
         ./yazi.nix
         ./zellij.nix

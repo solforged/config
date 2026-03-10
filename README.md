@@ -304,6 +304,27 @@ Manual smoke test after `./bin/rig deploy sigil`:
   [hosts/darwin/sigil/openclaw.nix](/Users/admin/.local/share/dotfiles/hosts/darwin/sigil/openclaw.nix)
   are commented out
 
+## Music foundation on sigil
+
+`sigil` now includes a small music-management foundation that keeps OpenClaw as
+an optional client instead of the system of record.
+
+- The Home Manager module owns `musicctl`, default config rendering, package
+  installation, and local state directories.
+- `musicctl` reads defaults from
+  `~/.config/musicctl/config.json` and optionally merges personal overrides from
+  `~/.config/musicctl/local.json`.
+- The initial surface is read-only and `beets`-first:
+  `musicctl doctor`, `musicctl library stats`, `musicctl library search`,
+  `musicctl library recent`, `musicctl library duplicates`,
+  `musicctl library inspect`, and `musicctl roon doctor`.
+- `Roon` support is bootstrap-only for now. `musicctl roon doctor` validates
+  local assumptions but does not automate `roon-tui`.
+- The OpenClaw skill under
+  [config/openclaw/plugins/music](/Users/admin/.local/share/dotfiles/config/openclaw/plugins/music)
+  calls `musicctl` only. It does not import, retag, move files, or control
+  playback.
+
 ## AI CLIs
 
 The `development` profile currently installs only the OpenAI CLI:
