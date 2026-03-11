@@ -1,5 +1,6 @@
 {
   config,
+  inputs,
   lib,
   pkgs,
   ...
@@ -15,6 +16,29 @@ in
   config = lib.mkIf cfg.profiles.development.enable {
     dotfiles.ai.enable = true;
 
+    dotfiles.ai.claude.settingsLocal = {
+      permissions = {
+        allow = [
+          "Read"
+          "Glob"
+          "Grep"
+          "LS"
+          "Search"
+          "Bash(find:*)"
+          "Bash(cat:*)"
+          "Bash(ls:*)"
+          "Bash(head:*)"
+          "Bash(tail:*)"
+          "Bash(rg:*)"
+          "Bash(git:*)"
+        ];
+        deny = [
+          "Read(.env*)"
+          "Read(./secrets/**)"
+        ];
+      };
+    };
+
     dotfiles.packages.home = with pkgs; [
       codex
       cargo
@@ -24,20 +48,26 @@ in
       gh
       go
       gopls
+      inputs.workmux.packages.${cfg.host.platform}.default
       memo
       nodejs
       nodePackages.typescript
       nodePackages.typescript-language-server
       nodePackages.prettier
       pnpm
+      pyright
+      (lib.hiPrio python3)
       resvg
+      ruff
       rust-analyzer
       rustc
       rustfmt
     ];
 
     dotfiles.homebrew.casks = lib.optionals isDarwin [
+      "codex"
       "codex-app"
+      "claude"
     ];
   };
 }

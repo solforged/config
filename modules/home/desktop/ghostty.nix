@@ -13,28 +13,14 @@ in
         theme = "dark:TokyoNight Storm,light:TokyoNight Storm";
         "scrollback-limit" = 1000000;
         keybind = [
-          # Window
-          "super+n=new_window"
-
-          # Splits
-          "super+alt+h=goto_split:left"
-          "super+alt+j=goto_split:bottom"
-          "super+alt+k=goto_split:top"
-          "super+alt+l=goto_split:right"
-          "super+ctrl+h=new_split:left"
-          "super+ctrl+j=new_split:down"
-          "super+ctrl+k=new_split:up"
-          "super+ctrl+l=new_split:right"
-          "super+ctrl+minus=new_split:down"
-          "super+ctrl+shift+backslash=new_split:right"
-          "super+ctrl+f=toggle_split_zoom"
-          "super+ctrl+e=equalize_splits"
-
-          # Tabs
+          # Tabs — brackets + numbers
           "super+t=new_tab"
-          "super+w=close_tab"
-          "super+shift+h=previous_tab"
-          "super+shift+l=next_tab"
+          "super+w=close_surface"
+          "super+left_bracket=previous_tab"
+          "super+right_bracket=next_tab"
+          "super+shift+left_bracket=move_tab:-1"
+          "super+shift+right_bracket=move_tab:1"
+          "super+comma=prompt_surface_title"
           "super+1=goto_tab:1"
           "super+2=goto_tab:2"
           "super+3=goto_tab:3"
@@ -44,11 +30,9 @@ in
           "super+7=goto_tab:7"
           "super+8=goto_tab:8"
           "super+9=goto_tab:9"
-          "super+ctrl+shift+h=move_tab:-1"
-          "super+ctrl+shift+l=move_tab:1"
-          "super+shift+r=prompt_surface_title"
 
-          # Maintenance
+          # Window & config
+          "super+n=new_window"
           "super+r=reload_config"
         ];
         "window-save-state" = "always";

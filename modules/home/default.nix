@@ -7,7 +7,13 @@
 }:
 let
   cfg = config.dotfiles;
-  editorCommand = if cfg.apps.editor == "emacs" then "emacsclient -c -a emacs" else "nvim";
+  editorCommand =
+    if cfg.apps.editor == "emacs" then
+      "emacsclient -c -a emacs"
+    else if cfg.apps.editor == "helix" then
+      "hx"
+    else
+      "nvim";
 in
 {
   imports = [

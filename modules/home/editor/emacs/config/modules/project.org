@@ -47,7 +47,7 @@
   (setq dirvish-mode-line-format '(:left (sort file-time file-size symlink) :right (omit yank index))))
 
 (use-package eat
-  :commands (eat eat-project))
+  :commands (eat eat-project eat-other-window))
 
 (use-package restart-emacs
   :commands restart-emacs)
@@ -64,6 +64,28 @@
   (let ((default-directory (dotfiles/project-root)))
     (call-interactively #'eat)))
 
+(defun dotfiles/claude-here ()
+  "Open Claude Code in the current project root."
+  (interactive)
+  (let ((default-directory (dotfiles/project-root)))
+    (eat-other-window "claude" t)))
+
+(defun dotfiles/claude-with-context ()
+  "Open Claude Code with current file or region as context."
+  (interactive)
+  (let* ((default-directory (dotfiles/project-root))
+         (file (when (buffer-file-name)
+                 (file-relative-name (buffer-file-name) default-directory)))
+         (region (when (use-region-p)
+                   (buffer-substring-no-properties (region-beginning) (region-end))))
+         (cmd (cond
+               (region (format "claude %s" (shell-quote-argument
+                                            (format "Regarding this code:\n```\n%s\n```" region))))
+               (file   (format "claude %s" (shell-quote-argument
+                                            (format "Look at %s" file))))
+               (t      "claude"))))
+    (eat-other-window cmd t)))
+
 (with-eval-after-load 'general
   (dotfiles/leader-def
     "g g" '(magit-status :which-key "magit status")
@@ -74,6 +96,10 @@
     "p p" '(project-switch-project :which-key "switch project")
     "p r" '(consult-ripgrep :which-key "project ripgrep")
     "t t" '(dotfiles/open-terminal-here :which-key "eat terminal")
+    "o t" '(dotfiles/open-terminal-here :which-key "terminal")
+    "o d" '(project-dired :which-key "dired")
+    "a c" '(dotfiles/claude-here :which-key "claude")
+    "a x" '(dotfiles/claude-with-context :which-key "claude with context")
     "q q" '(save-buffers-kill-emacs :which-key "quit emacs")
     "q r" '(restart-emacs :which-key "restart emacs")
     "q s" '(save-some-buffers :which-key "save buffers")))

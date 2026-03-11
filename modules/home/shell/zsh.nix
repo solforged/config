@@ -84,7 +84,7 @@ in
 
       shellAliases = {
         cdd = ''cd "$DOTFILES_DIR"'';
-        e = "\${EDITOR:-nvim}";
+        e = "$EDITOR";
         g = "git";
         ga = "git add";
         gb = "git branch";
@@ -125,7 +125,7 @@ in
           ci = "brew install --cask";
           data = "~data";
           df = "~df";
-          e = "nvim";
+          e = "$EDITOR";
           gcl = "git clone";
           gg = "lazygit";
           md = "mkdir -p";

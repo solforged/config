@@ -61,10 +61,15 @@
     "e" '(:ignore t :which-key "editor")
     "f" '(:ignore t :which-key "files")
     "g" '(:ignore t :which-key "git")
+    "h" '(:ignore t :which-key "help")
+    "i" '(:ignore t :which-key "insert")
     "n" '(:ignore t :which-key "notes")
+    "o" '(:ignore t :which-key "open")
     "p" '(:ignore t :which-key "project")
     "q" '(:ignore t :which-key "quit")
+    "s" '(:ignore t :which-key "search")
     "t" '(:ignore t :which-key "toggles")
+    "w" '(:ignore t :which-key "window")
     "x" '(:ignore t :which-key "diagnostics")))
 
 (use-package which-key
@@ -78,6 +83,11 @@
 ** Motions and editing helpers
 
 #+begin_src emacs-lisp
+(defun dotfiles/switch-to-last-buffer ()
+  "Switch to the most recently visited buffer."
+  (interactive)
+  (switch-to-buffer (other-buffer (current-buffer) 1)))
+
 (use-package avy
   :commands (avy-goto-char-timer avy-goto-word-1))
 
@@ -100,11 +110,53 @@
 
 (with-eval-after-load 'general
   (dotfiles/leader-def
+    "." '(find-file :which-key "find file")
+    "," '(consult-buffer :which-key "switch buffer")
+    "/" '(consult-ripgrep :which-key "ripgrep")
+    ";" '(eval-expression :which-key "eval expression")
+    ":" '(execute-extended-command :which-key "M-x")
+    "'" '(dotfiles/open-terminal-here :which-key "terminal")
+    "SPC" '(project-find-file :which-key "project find file")
+    "u" '(universal-argument :which-key "universal argument")
+    "TAB" '(dotfiles/switch-to-last-buffer :which-key "last buffer"))
+  (dotfiles/leader-def
     "b b" '(switch-to-buffer :which-key "switch buffer")
     "b d" '(kill-current-buffer :which-key "kill current buffer")
+    "b m" '(bookmark-set :which-key "set bookmark")
+    "b M" '(bookmark-delete :which-key "delete bookmark")
     "b n" '(next-buffer :which-key "next buffer")
     "b p" '(previous-buffer :which-key "previous buffer")
     "b r" '(revert-buffer :which-key "revert buffer")
+    "b s" '(save-buffer :which-key "save buffer")
+    "b S" '(save-some-buffers :which-key "save all buffers")
     "f j" '(avy-goto-char-timer :which-key "jump")
-    "v" '(er/expand-region :which-key "expand region")))
+    "v" '(er/expand-region :which-key "expand region"))
+  (dotfiles/leader-def
+    "w w" '(other-window :which-key "other window")
+    "w o" '(other-window :which-key "other window")
+    "w d" '(delete-window :which-key "delete window")
+    "w s" '(split-window-below :which-key "split below")
+    "w v" '(split-window-right :which-key "split right")
+    "w h" '(windmove-left :which-key "window left")
+    "w j" '(windmove-down :which-key "window down")
+    "w k" '(windmove-up :which-key "window up")
+    "w l" '(windmove-right :which-key "window right")
+    "w =" '(balance-windows :which-key "balance windows")
+    "w m" '(delete-other-windows :which-key "maximize"))
+  (dotfiles/leader-def
+    "h f" '(describe-function :which-key "describe function")
+    "h v" '(describe-variable :which-key "describe variable")
+    "h k" '(describe-key :which-key "describe key")
+    "h m" '(describe-mode :which-key "describe mode")
+    "h i" '(info :which-key "info")
+    "h t" '(consult-theme :which-key "theme"))
+  (general-define-key
+   :states '(normal visual motion)
+   :keymaps 'override
+   "] e" #'flymake-goto-next-error
+   "[ e" #'flymake-goto-prev-error
+   "] h" #'diff-hl-next-hunk
+   "[ h" #'diff-hl-previous-hunk
+   "g d" #'xref-find-definitions
+   "g D" #'xref-find-references))
 #+end_src
