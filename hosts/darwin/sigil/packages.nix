@@ -1,9 +1,7 @@
 { pkgs, ... }:
 {
   dotfiles = {
-    packages.home = [
-      pkgs.neovim
-    ];
+    packages.home = [ ];
 
     packages.system = [
       pkgs.tailscale

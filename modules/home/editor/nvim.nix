@@ -62,6 +62,12 @@ in
           action = "<cmd>Telescope help_tags<CR>";
           options.desc = "Help";
         }
+        {
+          mode = "n";
+          key = "<leader>gg";
+          action = "<cmd>LazyGit<CR>";
+          options.desc = "Lazygit";
+        }
       ];
 
       plugins = {
@@ -86,7 +92,12 @@ in
             };
           };
         };
+        flash = {
+          enable = true;
+          settings.modes.char.enabled = false;
+        };
         gitsigns.enable = true;
+        lazygit.enable = true;
         lsp = {
           enable = true;
           servers = {
@@ -103,6 +114,8 @@ in
           };
         };
         lualine.enable = true;
+        mini-ai.enable = true;
+        mini-surround.enable = true;
         neo-tree.enable = true;
         toggleterm = {
           enable = true;
@@ -118,6 +131,19 @@ in
         telescope = {
           enable = true;
           extensions.fzf-native.enable = true;
+        };
+        todo-comments = {
+          enable = true;
+          keymaps = {
+            todoTelescope = {
+              key = "<leader>fT";
+              options.desc = "TODO comments";
+            };
+            todoTrouble = {
+              key = "<leader>xT";
+              options.desc = "TODO comments";
+            };
+          };
         };
         trouble = {
           enable = true;
@@ -139,6 +165,11 @@ in
             {
               __unkeyed-1 = "<leader>c";
               group = "Codex";
+              mode = "n";
+            }
+            {
+              __unkeyed-1 = "<leader>g";
+              group = "Git";
               mode = "n";
             }
             {
@@ -186,6 +217,7 @@ in
 
         require("zellij-nav").setup({})
 
+        local flash = require("flash")
         local project_runner = {
           last_command = nil,
           terminal = nil,
@@ -292,6 +324,12 @@ in
           severity_sort = true,
         })
 
+        vim.keymap.set("n", "<leader>j", function()
+          flash.jump()
+        end, { desc = "Jump", silent = true })
+        vim.keymap.set("n", "<leader>J", function()
+          flash.treesitter()
+        end, { desc = "Treesitter jump", silent = true })
         vim.keymap.set("n", "<leader>qs", save_session, { desc = "Save session", silent = true })
         vim.keymap.set("n", "<leader>qr", restore_session, { desc = "Restore session", silent = true })
         vim.keymap.set("n", "<leader>tt", toggle_project_terminal, { desc = "Toggle project terminal", silent = true })

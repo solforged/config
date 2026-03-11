@@ -10,3 +10,4 @@ secrets/**/*.dec
 secrets/**/*.decrypted
 secrets/**/*.plaintext
 secrets/**/*.tmp
+.nvimlog
