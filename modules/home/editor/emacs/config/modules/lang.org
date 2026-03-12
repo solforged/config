@@ -19,6 +19,7 @@
 (use-package eglot
   :ensure nil
   :hook ((go-ts-mode . eglot-ensure)
+         (python-ts-mode . eglot-ensure)
          (rust-ts-mode . eglot-ensure)
          (tsx-ts-mode . eglot-ensure)
          (typescript-ts-mode . eglot-ensure)
@@ -27,7 +28,8 @@
   (setq eglot-autoshutdown t)
   (setq eglot-send-changes-idle-time 0.2)
   (add-to-list 'eglot-server-programs '((nix-mode) "nil"))
-  (add-to-list 'eglot-server-programs '((tsx-ts-mode typescript-ts-mode) "typescript-language-server" "--stdio")))
+  (add-to-list 'eglot-server-programs '((tsx-ts-mode typescript-ts-mode) "typescript-language-server" "--stdio"))
+  (add-to-list 'eglot-server-programs '(python-ts-mode "pyright-langserver" "--stdio")))
 
 (use-package consult-eglot
   :after (consult eglot))
@@ -41,7 +43,9 @@
   (setf (alist-get 'typescript-ts-mode apheleia-mode-alist) 'prettier)
   (setf (alist-get 'tsx-ts-mode apheleia-mode-alist) 'prettier)
   (setf (alist-get 'go-ts-mode apheleia-mode-alist) 'gofmt)
-  (setf (alist-get 'rust-ts-mode apheleia-mode-alist) 'rustfmt))
+  (setf (alist-get 'rust-ts-mode apheleia-mode-alist) 'rustfmt)
+  (setf (alist-get 'ruff apheleia-formatters) '("ruff" "format" "--stdin-filename" filepath "-"))
+  (setf (alist-get 'python-ts-mode apheleia-mode-alist) 'ruff))
 
 (use-package nix-mode
   :mode "\\.nix\\'")
@@ -50,8 +54,10 @@
   (dotfiles/leader-def
     "c a" '(eglot-code-actions :which-key "code action")
     "c d" '(xref-find-definitions :which-key "definition")
+    "c D" '(xref-find-references :which-key "references")
     "c f" '(apheleia-format-buffer :which-key "format buffer")
     "c h" '(eldoc :which-key "documentation")
+    "c i" '(eglot-find-typeDefinition :which-key "type definition")
     "c r" '(eglot-rename :which-key "rename")
     "c s" '(consult-eglot-symbols :which-key "workspace symbols")
     "x b" '(flymake-show-buffer-diagnostics :which-key "buffer diagnostics")
