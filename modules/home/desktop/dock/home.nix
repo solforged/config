@@ -19,7 +19,7 @@ let
   emacsClient = lib.getExe' emacsPackage "emacsclient";
   dockPaths = {
     editor = {
-      emacs = "$HOME/Applications/Nix Apps/Emacs.app";
+      emacs = "$HOME/Applications/Emacs Client.app";
       nvim = null;
     };
     browser = {
@@ -53,11 +53,12 @@ in
 
       if [ -n "$DOCKUTIL" ] && [ -e "$HOME/Library/Preferences/com.apple.dock.plist" ]; then
         ${lib.optionalString (cfg.apps.editor == "emacs") ''
-          app_target="$HOME/Applications/Nix Apps/Emacs.app"
+          app_target="$HOME/Applications/Emacs Client.app"
           contents_dir="$app_target/Contents"
           macos_dir="$contents_dir/MacOS"
           resources_dir="$contents_dir/Resources"
 
+          /bin/rm -rf "$HOME/Applications/Nix Apps/Emacs.app"
           /bin/rm -rf "$app_target"
           /bin/mkdir -p "$macos_dir" "$resources_dir"
 
@@ -69,7 +70,7 @@ in
               <key>CFBundleDevelopmentRegion</key>
               <string>English</string>
               <key>CFBundleExecutable</key>
-              <string>Emacs</string>
+              <string>Emacs Client</string>
               <key>CFBundleIconFile</key>
               <string>Emacs.icns</string>
               <key>CFBundleIdentifier</key>
@@ -77,7 +78,7 @@ in
               <key>CFBundleInfoDictionaryVersion</key>
               <string>6.0</string>
               <key>CFBundleName</key>
-              <string>Emacs</string>
+              <string>Emacs Client</string>
               <key>CFBundlePackageType</key>
               <string>APPL</string>
               <key>CFBundleShortVersionString</key>
@@ -91,12 +92,12 @@ in
           /bin/cp "${emacsPackage}/Applications/Emacs.app/Contents/Resources/Emacs.icns" \
             "$resources_dir/Emacs.icns"
 
-          cat > "$macos_dir/Emacs" <<EOF
+          cat > "$macos_dir/Emacs Client" <<EOF
           #!${pkgs.runtimeShell}
           exec ${emacsClient} -c -a emacs "\$@"
           EOF
 
-          /bin/chmod +x "$macos_dir/Emacs"
+          /bin/chmod +x "$macos_dir/Emacs Client"
         ''}
 
         add_dock_item() {
