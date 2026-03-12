@@ -86,7 +86,9 @@ find_repo_root() {
   die "could not determine dotfiles repo root; set RIG_REPO_ROOT"
 }
 
-repo_root="$(find_repo_root)"
+if [ "${RIG_SOURCED_AS_LIB:-0}" != "1" ]; then
+  repo_root="$(find_repo_root)"
+fi
 
 usage_main() {
   cat <<'EOF'
@@ -552,8 +554,18 @@ host_kind() {
 host_profile_file() {
   host="$1"
 
+  if [ -f "$repo_root/hosts/darwin/$host/preferences.nix" ]; then
+    printf '%s\n' "$repo_root/hosts/darwin/$host/preferences.nix"
+    return 0
+  fi
+
   if [ -f "$repo_root/hosts/darwin/$host/default.nix" ]; then
     printf '%s\n' "$repo_root/hosts/darwin/$host/default.nix"
+    return 0
+  fi
+
+  if [ -f "$repo_root/hosts/nixos/$host/preferences.nix" ]; then
+    printf '%s\n' "$repo_root/hosts/nixos/$host/preferences.nix"
     return 0
   fi
 
@@ -569,7 +581,8 @@ host_has_profile() {
   host="$1"
   profile="$2"
   profile_file="$(host_profile_file "$host")"
-  grep -Eq "^[[:space:]]*\"$profile\"[[:space:]]*$" "$profile_file"
+  grep -q "${profile}\.enable[[:space:]]*=[[:space:]]*true" "$profile_file" ||
+    grep -Eq "^[[:space:]]*\"$profile\"[[:space:]]*$" "$profile_file"
 }
 
 resolve_host_arg() {
@@ -1204,6 +1217,8 @@ do_fmt() {
   nix_cmd fmt "$@"
 }
 
+if [ "${RIG_SOURCED_AS_LIB:-0}" != "1" ]; then
+
 cmd="${1:-help}"
 if [ "$#" -gt 0 ]; then
   shift
@@ -1253,3 +1268,5 @@ case "$cmd" in
     show_unknown_command "$cmd"
     ;;
 esac
+
+fi

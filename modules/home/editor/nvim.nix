@@ -19,6 +19,7 @@ in
       globals.mapleader = " ";
 
       opts = {
+        laststatus = 3;
         number = true;
         relativenumber = true;
         scrolloff = 8;
