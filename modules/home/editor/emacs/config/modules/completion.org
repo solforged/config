@@ -68,6 +68,12 @@
 (use-package tempel-collection
   :after tempel)
 
+(defun dotfiles/consult-ripgrep-in-directory ()
+  "Run consult-ripgrep in a user-selected directory."
+  (interactive)
+  (let ((dir (read-directory-name "Search in directory: ")))
+    (consult-ripgrep dir)))
+
 (with-eval-after-load 'general
   (dotfiles/leader-def
     "b i" '(consult-buffer :which-key "buffer switcher")
@@ -75,5 +81,13 @@
     "f g" '(consult-ripgrep :which-key "ripgrep")
     "f h" '(consult-history :which-key "history")
     "f l" '(consult-line :which-key "search line")
-    "f r" '(consult-recent-file :which-key "recent files")))
+    "f r" '(consult-recent-file :which-key "recent files")
+    "s s" '(consult-line :which-key "search line")
+    "s p" '(consult-ripgrep :which-key "ripgrep project")
+    "s d" '(dotfiles/consult-ripgrep-in-directory :which-key "ripgrep directory")
+    "s i" '(consult-imenu :which-key "imenu")
+    "s o" '(consult-outline :which-key "outline")
+    "s b" '(consult-line-multi :which-key "search all buffers")
+    "i s" '(tempel-insert :which-key "snippet")
+    "i e" '(insert-char :which-key "emoji / char")))
 #+end_src

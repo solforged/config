@@ -27,6 +27,10 @@ in
       OPENCLAW_REMOTE_URL = aiCfg.openclawRemoteUrl;
     };
 
+    home.file.".claude/settings.local.json" = lib.mkIf (aiCfg.claude.settingsLocal != {}) {
+      text = builtins.toJSON aiCfg.claude.settingsLocal;
+    };
+
     home.file.".local/bin/codex-here" = {
       executable = true;
       text = ''

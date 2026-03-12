@@ -1,4 +1,5 @@
 {
+  config,
   lib,
   osConfig,
   pkgs,
@@ -31,9 +32,22 @@ let
     (provide 'dotfiles-host-facts)
     ;;; host-facts.el ends here
   '';
+  # Eat terminal emulator sets TERM=eat-truecolor but its terminfo entries
+  # only live inside the elpaca package directory. Compile them into the
+  # user profile so nix-darwin's set-environment (which sets TERMINFO_DIRS
+  # to include per-user profile paths) can resolve them.
+  eatTerminfo = pkgs.runCommand "eat-terminfo" { nativeBuildInputs = [ pkgs.ncurses ]; } ''
+    mkdir -p $out/share/terminfo
+    tic -o $out/share/terminfo ${./config/eat.ti}
+  '';
 in
 {
   config = lib.mkIf (builtins.elem "emacs" cfg.apps.enabledEditors) {
+    # Install eat terminfo entries into the user profile so that
+    # nix-darwin's set-environment (which sets TERMINFO_DIRS to include
+    # the per-user profile) can resolve TERM=eat-truecolor.
+    home.packages = [ eatTerminfo ];
+
     programs.emacs = {
       enable = true;
       package = emacsPackage;
