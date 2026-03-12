@@ -1,4 +1,4 @@
 { lib, ... }:
 {
-  options.dotfiles.profiles.work.enable = lib.mkEnableOption "work profile";
+  options.platform.profiles.work.enable = lib.mkEnableOption "work profile";
 }

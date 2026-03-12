@@ -8,13 +8,13 @@
 }:
 let
   inherit (lib) mkOption types;
-  cfg = osConfig.dotfiles;
+  cfg = osConfig.platform;
   openclawCfg = cfg.openclaw;
   documentsDir = builtins.path {
     path = self.outPath + "/hosts/darwin/sigil/openclaw/documents";
     name = "openclaw-documents";
   };
-  secretDir = "${config.xdg.stateHome}/dotfiles/secrets/openclaw";
+  secretDir = "${config.xdg.stateHome}/platform/secrets/openclaw";
   openclawStateDir = "${config.xdg.stateHome}/openclaw";
   openclawOAuthDir = "${openclawStateDir}/credentials";
   openclawWorkspaceDir = "${config.xdg.dataHome}/openclaw/workspace";
@@ -41,11 +41,11 @@ in
   assertions = [
     {
       assertion = tailscaleMagicDnsName != null;
-      message = "dotfiles.openclaw.tailscaleMagicDnsName must be set for OpenClaw hosts.";
+      message = "platform.openclaw.tailscaleMagicDnsName must be set for OpenClaw hosts.";
     }
     {
       assertion = telegramOwnerId != null;
-      message = "dotfiles.openclaw.telegramOwnerId must be set for OpenClaw hosts.";
+      message = "platform.openclaw.telegramOwnerId must be set for OpenClaw hosts.";
     }
   ];
 

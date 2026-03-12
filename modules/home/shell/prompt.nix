@@ -1,6 +1,6 @@
 { lib, osConfig, ... }:
 let
-  cfg = osConfig.dotfiles;
+  cfg = osConfig.platform;
 in
 {
   programs.starship = {

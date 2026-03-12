@@ -1,5 +1,5 @@
 {
-  dotfiles.power.settings = {
+  platform.power.settings = {
     displaysleep = 10;
     disksleep = 0;
     sleep = 0;

@@ -6,13 +6,13 @@
 }:
 let
   inherit (lib) mkEnableOption;
-  cfg = config.dotfiles;
+  cfg = config.platform;
 in
 {
-  options.dotfiles.profiles.base.enable = mkEnableOption "common CLI base profile";
+  options.platform.profiles.base.enable = mkEnableOption "common CLI base profile";
 
   config = lib.mkIf cfg.profiles.base.enable {
-    dotfiles.packages.home = with pkgs; [
+    platform.packages.home = with pkgs; [
       age
       chafa
       fd

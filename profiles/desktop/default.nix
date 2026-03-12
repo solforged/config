@@ -6,18 +6,18 @@
 }:
 let
   inherit (lib) mkEnableOption;
-  cfg = config.dotfiles;
+  cfg = config.platform;
   isDarwin = lib.hasSuffix "darwin" cfg.host.platform;
 in
 {
-  options.dotfiles.profiles.desktop.enable = mkEnableOption "desktop profile";
+  options.platform.profiles.desktop.enable = mkEnableOption "desktop profile";
 
   config = lib.mkIf cfg.profiles.desktop.enable {
-    dotfiles.packages.home = lib.optionals isDarwin [
+    platform.packages.home = lib.optionals isDarwin [
       pkgs.dockutil
     ];
 
-    dotfiles.homebrew.casks = lib.optionals isDarwin [
+    platform.homebrew.casks = lib.optionals isDarwin [
       "font-blex-mono-nerd-font"
       "font-ibm-plex-sans"
       "font-symbols-only-nerd-font"

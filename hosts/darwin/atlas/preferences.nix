@@ -1,5 +1,5 @@
 {
-  dotfiles = {
+  platform = {
     profiles = {
       base.enable = true;
       desktop.enable = true;

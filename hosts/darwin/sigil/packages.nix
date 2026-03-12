@@ -1,6 +1,6 @@
 { pkgs, ... }:
 {
-  dotfiles = {
+  platform = {
     packages.home = [ ];
 
     packages.system = [

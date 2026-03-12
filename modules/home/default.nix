@@ -6,7 +6,7 @@
   ...
 }:
 let
-  cfg = config.dotfiles;
+  cfg = config.platform;
   editorCommand =
     if cfg.apps.editor == "emacs" then
       "emacsclient -c -a emacs"
@@ -111,7 +111,7 @@ in
         Local-only overrides belong outside the flake.
         Common examples:
           $XDG_DATA_HOME/codex
-          $XDG_STATE_HOME/dotfiles/secrets
+          $XDG_STATE_HOME/platform/secrets
           ~/.config/fish/local.fish
           ~/.config/git/local.inc
           ~/.config/nushell/local.nu

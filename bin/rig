@@ -66,7 +66,7 @@ find_repo_root() {
     return 0
   fi
 
-  candidate="${XDG_DATA_HOME:-$HOME/.local/share}/dotfiles"
+  candidate="${XDG_DATA_HOME:-$HOME/.local/share}/platform"
   if is_repo_root "$candidate"; then
     printf '%s\n' "$candidate"
     return 0
@@ -83,7 +83,7 @@ find_repo_root() {
     candidate="$parent"
   done
 
-  die "could not determine dotfiles repo root; set RIG_REPO_ROOT"
+  die "could not determine platform repo root; set RIG_REPO_ROOT"
 }
 
 if [ "${RIG_SOURCED_AS_LIB:-0}" != "1" ]; then
@@ -142,7 +142,7 @@ First-run activation flow for a host.
 
 Environment:
   AGE_IDENTITIES_FILE      Override the age identity file used for decryption
-  DOTFILES_SECRETS_DIR     Override the runtime decrypt directory
+  PLATFORM_SECRETS_DIR     Override the runtime decrypt directory
   PROTON_PASS_AGE_IDENTITY_REF  Override the Proton Pass reference used to restore keys.txt
   RIG_HOST                 Override auto-detected host slug
 
@@ -169,7 +169,7 @@ Host resolution:
   - otherwise fall back to the single known host when only one exists
 
 Environment:
-  DOTFILES_SECRETS_DIR     Override the runtime decrypt directory
+  PLATFORM_SECRETS_DIR     Override the runtime decrypt directory
   RIG_HOST                 Override auto-detected host slug
 
 Examples:
@@ -197,7 +197,7 @@ Secrets subcommands:
 
 Environment:
   AGE_IDENTITIES_FILE      Override the age identity file used for decryption
-  DOTFILES_SECRETS_DIR     Override the runtime decrypt directory
+  PLATFORM_SECRETS_DIR     Override the runtime decrypt directory
   RIG_HOST                 Override auto-detected host slug
 
 Examples:
@@ -594,7 +594,7 @@ resolve_host_arg() {
 }
 
 secret_state_dir() {
-  printf '%s\n' "${DOTFILES_SECRETS_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles/secrets}"
+  printf '%s\n' "${PLATFORM_SECRETS_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/platform/secrets}"
 }
 
 secret_tree_has_entries() {
@@ -706,7 +706,7 @@ reset_secret_state_dir() {
   state_dir="$1"
 
   case "$state_dir" in
-    */dotfiles/secrets)
+    */platform/secrets)
       ;;
     *)
       die "refusing to clear unexpected secret state dir: $state_dir"

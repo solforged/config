@@ -5,7 +5,7 @@
   ...
 }:
 let
-  cfg = osConfig.dotfiles;
+  cfg = osConfig.platform;
   aiCfg = cfg.ai;
   helperCommon = ''
     find_project_root() {

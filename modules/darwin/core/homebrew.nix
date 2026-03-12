@@ -5,7 +5,7 @@
 }:
 let
   inherit (lib) mkEnableOption mkOption types;
-  cfg = config.dotfiles;
+  cfg = config.platform;
   isDarwin = lib.hasSuffix "darwin" cfg.host.platform;
   appCaskCatalog = {
     browser = {
@@ -35,7 +35,7 @@ let
   ];
 in
 {
-  options.dotfiles = {
+  options.platform = {
     features.homebrew.enable = mkEnableOption "manage Homebrew through nix-darwin";
 
     homebrew = {

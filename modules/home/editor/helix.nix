@@ -4,7 +4,7 @@
   ...
 }:
 let
-  cfg = osConfig.dotfiles;
+  cfg = osConfig.platform;
 in
 {
   config = lib.mkIf (builtins.elem "helix" cfg.apps.enabledEditors) {

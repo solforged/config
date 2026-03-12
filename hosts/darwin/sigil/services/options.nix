@@ -3,7 +3,7 @@ let
   inherit (lib) mkOption types;
 in
 {
-  options.dotfiles.openclaw = {
+  options.platform.openclaw = {
     tailscaleMagicDnsName = mkOption {
       type = types.nullOr types.str;
       default = null;

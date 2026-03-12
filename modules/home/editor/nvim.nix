@@ -5,7 +5,7 @@
   ...
 }:
 let
-  cfg = osConfig.dotfiles;
+  cfg = osConfig.platform;
   hasDevelopmentProfile = cfg.profiles.development.enable;
 in
 {

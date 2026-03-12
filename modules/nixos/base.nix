@@ -5,7 +5,7 @@
   ...
 }:
 let
-  cfg = config.dotfiles;
+  cfg = config.platform;
   isLinux = lib.hasSuffix "linux" cfg.host.platform;
   selectedShellPackage =
     if cfg.apps.shell == "fish" then
