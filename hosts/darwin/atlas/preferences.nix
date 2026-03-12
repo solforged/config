@@ -9,7 +9,7 @@
 
     apps = {
       shell = "zsh";
-      editor = "nvim";
+      editor = "helix";
       terminal = "ghostty";
       browser = "brave";
       passwordManager = "proton-pass";

@@ -20,6 +20,7 @@ let
   dockPaths = {
     editor = {
       emacs = "$HOME/Applications/Emacs Client.app";
+      helix = null;
       nvim = null;
     };
     browser = {

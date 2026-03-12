@@ -85,6 +85,7 @@ in
         type = types.enum [
           "nvim"
           "emacs"
+          "helix"
         ];
         default = "nvim";
         description = "Preferred editor.";
@@ -95,6 +96,7 @@ in
           types.enum [
             "nvim"
             "emacs"
+            "helix"
           ]
         );
         default = [ config.dotfiles.apps.editor ];
