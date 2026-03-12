@@ -1,5 +1,6 @@
 {
   config,
+  inputs,
   lib,
   pkgs,
   ...
@@ -47,6 +48,7 @@ in
       gh
       go
       gopls
+      inputs.workmux.packages.${cfg.host.platform}.default
       memo
       nodejs
       nodePackages.typescript
@@ -63,7 +65,9 @@ in
     ];
 
     dotfiles.homebrew.casks = lib.optionals isDarwin [
+      "codex"
       "codex-app"
+      "claude"
     ];
   };
 }
