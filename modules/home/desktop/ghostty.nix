@@ -13,18 +13,6 @@ in
         theme = "dark:TokyoNight Storm,light:TokyoNight Storm";
         "scrollback-limit" = 1000000;
         keybind = [
-          # Navigation — super + vim keys
-          "super+h=goto_split:left"
-          "super+j=goto_split:bottom"
-          "super+k=goto_split:top"
-          "super+l=goto_split:right"
-
-          # Splits — mnemonic keys
-          "super+d=new_split:right"
-          "super+shift+d=new_split:down"
-          "super+f=toggle_split_zoom"
-          "super+e=equalize_splits"
-
           # Tabs — brackets + numbers
           "super+t=new_tab"
           "super+w=close_surface"

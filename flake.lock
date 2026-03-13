@@ -457,7 +457,8 @@
         "nix-darwin": "nix-darwin",
         "nix-openclaw": "nix-openclaw",
         "nixpkgs": "nixpkgs_4",
-        "nixvim": "nixvim"
+        "nixvim": "nixvim",
+        "workmux": "workmux"
       }
     },
     "systems": {
@@ -502,6 +503,26 @@
       "original": {
         "owner": "nix-systems",
         "repo": "default",
+        "type": "github"
+      }
+    },
+    "workmux": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1773349885,
+        "narHash": "sha256-8VLEuL/mM7TKF6r3GZtHVqjRkacj1rcXcjQlDzxQASw=",
+        "owner": "raine",
+        "repo": "workmux",
+        "rev": "b8e780000b357fb0fffd31958e822f994fc1c756",
+        "type": "github"
+      },
+      "original": {
+        "owner": "raine",
+        "repo": "workmux",
         "type": "github"
       }
     }
