@@ -5,10 +5,10 @@
 }:
 let
   inherit (lib) mkOption types;
-  cfg = config.dotfiles.apps;
+  cfg = config.platform.apps;
 in
 {
-  options.dotfiles = {
+  options.platform = {
     user = {
       name = mkOption {
         type = types.str;
@@ -99,7 +99,7 @@ in
             "helix"
           ]
         );
-        default = [ config.dotfiles.apps.editor ];
+        default = [ config.platform.apps.editor ];
         description = "Editors to configure on this host.";
       };
 
@@ -158,7 +158,7 @@ in
     secrets = {
       stateDir = mkOption {
         type = types.str;
-        default = "~/.local/state/dotfiles/secrets";
+        default = "~/.local/state/platform/secrets";
         description = "Directory where age-encrypted repo files are decrypted at runtime.";
       };
     };
@@ -182,7 +182,7 @@ in
   config.assertions = [
     {
       assertion = builtins.elem cfg.editor cfg.enabledEditors;
-      message = "dotfiles.apps.editor must be included in dotfiles.apps.enabledEditors.";
+      message = "platform.apps.editor must be included in platform.apps.enabledEditors.";
     }
   ];
 }

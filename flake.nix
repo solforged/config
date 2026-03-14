@@ -22,30 +22,30 @@
   outputs =
     inputs@{ self, nixpkgs, ... }:
     let
-      dotfilesLib = import ./lib {
+      platformLib = import ./lib {
         inherit inputs self;
       };
-      darwinHosts = dotfilesLib.discoverHosts ./hosts/darwin;
-      nixosHosts = dotfilesLib.discoverHosts ./hosts/nixos;
+      darwinHosts = platformLib.discoverHosts ./hosts/darwin;
+      nixosHosts = platformLib.discoverHosts ./hosts/nixos;
       darwinConfigurations = builtins.mapAttrs (
-        _: host: dotfilesLib.mkDarwinHost { inherit host; }
+        _: host: platformLib.mkDarwinHost { inherit host; }
       ) darwinHosts;
       nixosConfigurations = builtins.mapAttrs (
-        _: host: dotfilesLib.mkNixosHost { inherit host; }
+        _: host: platformLib.mkNixosHost { inherit host; }
       ) nixosHosts;
     in
     {
-      lib = dotfilesLib;
+      lib = platformLib;
 
       overlays.default = import ./overlays;
 
-      packages = dotfilesLib.forAllSystems (
+      packages = platformLib.forAllSystems (
         system: import ./pkgs { pkgs = nixpkgs.legacyPackages.${system}; }
       );
 
       inherit darwinConfigurations nixosConfigurations;
 
-      checks = dotfilesLib.mkChecks {
+      checks = platformLib.mkChecks {
         inherit
           darwinHosts
           darwinConfigurations
@@ -54,6 +54,6 @@
           ;
       };
 
-      formatter = dotfilesLib.forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-rfc-style);
+      formatter = platformLib.forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-rfc-style);
     };
 }

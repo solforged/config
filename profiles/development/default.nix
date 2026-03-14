@@ -7,16 +7,16 @@
 }:
 let
   inherit (lib) mkEnableOption;
-  cfg = config.dotfiles;
+  cfg = config.platform;
   isDarwin = lib.hasSuffix "darwin" cfg.host.platform;
 in
 {
-  options.dotfiles.profiles.development.enable = mkEnableOption "development tooling profile";
+  options.platform.profiles.development.enable = mkEnableOption "development tooling profile";
 
   config = lib.mkIf cfg.profiles.development.enable {
-    dotfiles.ai.enable = true;
+    platform.ai.enable = true;
 
-    dotfiles.ai.claude.settingsLocal = {
+    platform.ai.claude.settingsLocal = {
       permissions = {
         allow = [
           "Read"
@@ -39,7 +39,7 @@ in
       };
     };
 
-    dotfiles.packages.home = with pkgs; [
+    platform.packages.home = with pkgs; [
       codex
       cargo
       clippy
@@ -64,7 +64,7 @@ in
       rustfmt
     ];
 
-    dotfiles.homebrew.casks = lib.optionals isDarwin [
+    platform.homebrew.casks = lib.optionals isDarwin [
       "codex"
       "codex-app"
       "claude"

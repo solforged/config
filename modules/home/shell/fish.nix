@@ -5,8 +5,8 @@
   ...
 }:
 let
-  cfg = osConfig.dotfiles;
-  secretFish = "${config.xdg.stateHome}/dotfiles/secrets/fish/local.fish";
+  cfg = osConfig.platform;
+  secretFish = "${config.xdg.stateHome}/platform/secrets/fish/local.fish";
   localFish = "${config.xdg.configHome}/fish/local.fish";
 in
 {

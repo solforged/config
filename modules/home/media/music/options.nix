@@ -3,7 +3,7 @@ let
   inherit (lib) mkEnableOption mkOption types;
 in
 {
-  options.dotfiles.music = {
+  options.platform.music = {
     enable = mkEnableOption "sigil-first music management foundation";
 
     beets.enable = mkOption {

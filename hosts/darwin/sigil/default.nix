@@ -25,7 +25,7 @@
         ./services
       ];
 
-      dotfiles = {
+      platform = {
         user = {
           name = "admin";
           home = "/Users/admin";

@@ -1,6 +1,6 @@
 { osConfig, ... }:
 let
-  cfg = osConfig.dotfiles;
+  cfg = osConfig.platform;
 in
 {
   home.file.".ssh/config" = {

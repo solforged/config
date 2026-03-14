@@ -7,7 +7,7 @@
   ...
 }:
 let
-  cfg = osConfig.dotfiles.music;
+  cfg = osConfig.platform.music;
   musicctlConfigPath = "${config.xdg.configHome}/musicctl/config.json";
   musicctlLocalConfigPath = "${config.xdg.configHome}/musicctl/local.json";
   musicctlStateDir = "${config.xdg.stateHome}/musicctl";
@@ -39,7 +39,7 @@ in
       assertions = [
         {
           assertion = !cfg.openclaw.enable || hasOpenclawModule;
-          message = "dotfiles.music.openclaw.enable requires the nix-openclaw Home Manager module.";
+          message = "platform.music.openclaw.enable requires the nix-openclaw Home Manager module.";
         }
       ];
 

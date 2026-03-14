@@ -6,7 +6,7 @@
   ...
 }:
 let
-  cfg = osConfig.dotfiles;
+  cfg = osConfig.platform;
   isDarwin = lib.hasSuffix "darwin" cfg.host.platform;
   emacsPackage =
     let

@@ -2,13 +2,13 @@
   description = "OpenClaw music plugin for sigil";
 
   inputs = {
-    dotfiles.url = "../../../../";
-    nixpkgs.follows = "dotfiles/nixpkgs";
+    platform.url = "../../../../";
+    nixpkgs.follows = "platform/nixpkgs";
   };
 
   outputs =
     {
-      dotfiles,
+      platform,
       nixpkgs,
       ...
     }:
@@ -17,7 +17,7 @@
         name = "music";
         skills = [ ./skills/music ];
         packages = [
-          dotfiles.packages.${system}.musicctl
+          platform.packages.${system}.musicctl
           nixpkgs.legacyPackages.${system}.beets
           nixpkgs.legacyPackages.${system}.roon-tui
         ];

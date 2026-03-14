@@ -6,8 +6,8 @@
   ...
 }:
 let
-  cfg = osConfig.dotfiles;
-  secretLocalZsh = "${config.xdg.stateHome}/dotfiles/secrets/zsh/local.zsh";
+  cfg = osConfig.platform;
+  secretLocalZsh = "${config.xdg.stateHome}/platform/secrets/zsh/local.zsh";
   localZsh = cfg.local.zshLocal;
 in
 {
@@ -71,14 +71,14 @@ in
       ];
 
       sessionVariables = {
-        DOTFILES_DIR = "${config.xdg.dataHome}/dotfiles";
+        PLATFORM_DIR = "${config.xdg.dataHome}/platform";
       };
 
       dirHashes = {
         cache = config.xdg.cacheHome;
         cfg = config.xdg.configHome;
         data = config.xdg.dataHome;
-        df = "${config.xdg.dataHome}/dotfiles";
+        pf = "${config.xdg.dataHome}/platform";
         state = config.xdg.stateHome;
       };
 

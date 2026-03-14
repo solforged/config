@@ -1,7 +1,7 @@
 { config, lib, ... }:
 let
   inherit (lib) mkEnableOption mkOption types;
-  cfg = config.dotfiles;
+  cfg = config.platform;
   isDarwin = lib.hasSuffix "darwin" cfg.host.platform;
   formatPmsetValue =
     value: if builtins.isBool value then if value then "1" else "0" else toString value;
@@ -12,7 +12,7 @@ let
   );
 in
 {
-  options.dotfiles = {
+  options.platform = {
     features.touchIdSudo.enable = mkEnableOption "enable Touch ID for sudo";
     features.capsToCtrl.enable = mkEnableOption "map Caps Lock to Control";
 
