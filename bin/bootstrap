@@ -1,0 +1,110 @@
+#!/usr/bin/env sh
+
+# Bootstrap a fresh Mac from zero to fully configured.
+#
+# Usage:
+#   curl -fsSL <raw-url>/bin/bootstrap | sh -s -- <host>
+#   sh bin/bootstrap sigil
+
+set -eu
+
+die() {
+  printf '%s\n' "error: $*" >&2
+  exit 1
+}
+
+info() {
+  printf '==> %s\n' "$*"
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+# ── Nix ──────────────────────────────────────────────────────────────
+
+install_nix() {
+  if require_command nix; then
+    info "nix already installed"
+    return 0
+  fi
+
+  info "installing Determinate Nix"
+  curl --proto '=https' --tlsv1.2 -sSf -L \
+    https://install.determinate.systems/nix | sh -s -- install
+
+  # Source nix profile for the rest of this script
+  if [ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]; then
+    # shellcheck disable=SC1091
+    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+  fi
+
+  require_command nix || die "nix installation failed"
+}
+
+# ── 1Password CLI ────────────────────────────────────────────────────
+
+install_op_cli() {
+  if require_command op; then
+    info "op CLI already installed"
+    return 0
+  fi
+
+  info "installing 1Password CLI"
+  pkg_url="https://cache.agilebits.com/dist/1P/op2/pkg/v2.30.3/op_apple_universal_v2.30.3.pkg"
+  tmp_pkg="${TMPDIR:-/tmp}/op-cli.pkg"
+
+  cleanup_op_pkg() {
+    rm -f -- "$tmp_pkg"
+  }
+  trap cleanup_op_pkg EXIT HUP INT TERM
+
+  curl -fsSL -o "$tmp_pkg" "$pkg_url"
+  sudo installer -pkg "$tmp_pkg" -target /
+  rm -f -- "$tmp_pkg"
+  trap - EXIT HUP INT TERM
+
+  require_command op || die "op CLI installation failed"
+}
+
+# ── 1Password sign-in ────────────────────────────────────────────────
+
+ensure_op_signed_in() {
+  if op account list --format=json 2>/dev/null | grep -q '"url"'; then
+    info "1Password already signed in"
+    return 0
+  fi
+
+  info "signing into 1Password (interactive)"
+  eval "$(op signin)"
+}
+
+# ── Clone config repo ────────────────────────────────────────────────
+
+clone_config_repo() {
+  repo_dir="${XDG_DATA_HOME:-$HOME/.local/share}/platform"
+  repo_url="${CONFIG_REPO_URL:-https://github.com/phrmendes/config.git}"
+
+  if [ -d "$repo_dir/.git" ]; then
+    info "config repo already present at $repo_dir"
+    return 0
+  fi
+
+  info "cloning config repo to $repo_dir"
+  mkdir -p "$(dirname "$repo_dir")"
+  git clone "$repo_url" "$repo_dir"
+}
+
+# ── Main ─────────────────────────────────────────────────────────────
+
+host="${1:-}"
+[ -n "$host" ] || die "usage: bootstrap <host>"
+
+install_nix
+install_op_cli
+ensure_op_signed_in
+clone_config_repo
+
+repo_dir="${XDG_DATA_HOME:-$HOME/.local/share}/platform"
+info "running rig bootstrap $host"
+exec "$repo_dir/bin/rig" bootstrap "$host"
