@@ -3,7 +3,7 @@ let
   inherit (lib) mkEnableOption mkOption types;
 in
 {
-  options.dotfiles.ai = {
+  options.platform.ai = {
     enable = mkEnableOption "Codex-first local AI helpers";
 
     openclawRemoteUrl = mkOption {

@@ -5,7 +5,7 @@
   ...
 }:
 let
-  cfg = osConfig.dotfiles;
+  cfg = osConfig.platform;
 
   defaultShell =
     if cfg.apps.shell == "zsh" then
