@@ -15,8 +15,13 @@
     nix-openclaw.url = "github:openclaw/nix-openclaw";
     nix-openclaw.inputs.nixpkgs.follows = "nixpkgs";
     nix-openclaw.inputs.home-manager.follows = "home-manager";
-    workmux.url = "github:raine/workmux";
-    workmux.inputs.nixpkgs.follows = "nixpkgs";
+    claude-code-nix.url = "github:sadjow/claude-code-nix";
+    worktrunk = {
+      url = "github:max-sixty/worktrunk";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    sops-nix.url = "github:Mic92/sops-nix";
+    sops-nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
