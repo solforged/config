@@ -14,7 +14,7 @@
       enabledEditors = [ "helix" ];
       terminal = "ghostty";
       browser = "brave";
-      passwordManager = "proton-pass";
+      passwordManager = "1password";
     };
 
     features = {
