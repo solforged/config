@@ -2,6 +2,7 @@
   config,
   lib,
   osConfig,
+  pkgs,
   ...
 }:
 let
@@ -23,13 +24,44 @@ let
 in
 {
   config = lib.mkIf aiCfg.enable {
-    home.sessionVariables = lib.optionalAttrs (aiCfg.openclawRemoteUrl != null) {
-      OPENCLAW_REMOTE_URL = aiCfg.openclawRemoteUrl;
+    home.packages = lib.optional (aiCfg.claude.package != null) aiCfg.claude.package;
+
+    programs.zsh.shellAliases = lib.mkIf (aiCfg.claude.package != null) {
+      claude = "claude-bun";
     };
 
-    home.file.".claude/settings.local.json" = lib.mkIf (aiCfg.claude.settingsLocal != {}) {
-      text = builtins.toJSON aiCfg.claude.settingsLocal;
-    };
+    home.sessionVariables =
+      lib.optionalAttrs (aiCfg.openclawRemoteUrl != null) {
+        OPENCLAW_REMOTE_URL = aiCfg.openclawRemoteUrl;
+      }
+      // lib.optionalAttrs (aiCfg.openclawRemoteHostnameOpRef != null) {
+        OPENCLAW_REMOTE_HOSTNAME_OP_REF = aiCfg.openclawRemoteHostnameOpRef;
+      };
+
+    home.activation.claudeSettings = lib.mkIf (aiCfg.claude.settings != { }) (
+      let
+        nixSettings = pkgs.writeText "claude-settings-nix.json" (builtins.toJSON aiCfg.claude.settings);
+        jq = lib.getExe pkgs.jq;
+      in
+      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        settings="$HOME/.claude/settings.json"
+        /bin/mkdir -p "$HOME/.claude"
+
+        # Remove stale Home Manager symlink pointing into the Nix store
+        if [ -L "$settings" ]; then
+          /bin/rm "$settings"
+        fi
+
+        if [ -f "$settings" ]; then
+          # Deep-merge: existing runtime keys stay, Nix-declared keys win
+          merged="$(${jq} -s '.[0] * .[1]' "$settings" "${nixSettings}")"
+          printf '%s\n' "$merged" > "$settings"
+        else
+          /bin/cp "${nixSettings}" "$settings"
+          /bin/chmod 644 "$settings"
+        fi
+      ''
+    );
 
     home.file.".local/bin/codex-here" = {
       executable = true;
@@ -68,9 +100,53 @@ in
         #!/bin/sh
         set -eu
 
+        normalize_url() {
+          value="$1"
+
+          case "$value" in
+            http://*|https://*)
+              printf '%s\n' "''${value%/}"
+              ;;
+            *)
+              printf 'https://%s\n' "$value"
+              ;;
+          esac
+        }
+
+        resolve_op_bin() {
+          if command -v op >/dev/null 2>&1; then
+            command -v op
+            return 0
+          fi
+
+          if [ -x /opt/homebrew/bin/op ]; then
+            printf '%s\n' /opt/homebrew/bin/op
+            return 0
+          fi
+
+          printf '%s\n' "error: 1Password CLI is required to resolve OPENCLAW_REMOTE_HOSTNAME_OP_REF" >&2
+          exit 1
+        }
+
+        remote_ref="''${OPENCLAW_REMOTE_HOSTNAME_OP_REF:-}"
         url="''${OPENCLAW_REMOTE_URL:-}"
 
-        if [ -z "$url" ]; then
+        if [ -n "$remote_ref" ]; then
+          op_bin="$(resolve_op_bin)"
+          hostname="$("$op_bin" read "$remote_ref" 2>/dev/null)" || {
+            printf '%s\n' "error: failed to read OPENCLAW_REMOTE_HOSTNAME_OP_REF via 1Password CLI" >&2
+            exit 1
+          }
+
+          if [ -z "$hostname" ]; then
+            printf '%s\n' "error: OPENCLAW_REMOTE_HOSTNAME_OP_REF resolved to an empty value" >&2
+            exit 1
+          fi
+
+          url="$(normalize_url "$hostname")"
+        elif [ -n "$url" ]; then
+          url="$(normalize_url "$url")"
+        else
           printf '%s\n' "error: OPENCLAW_REMOTE_URL is not configured" >&2
           exit 1
         fi
