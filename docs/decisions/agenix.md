@@ -1,65 +1,32 @@
 # Agenix
 
 Recorded: March 9, 2026
+Updated: March 14, 2026
 
 ## Current state
 
-This repo already has a working `age`-based secrets workflow:
+The age-based secrets layer was removed entirely in March 2026. Secrets now
+live in 1Password and are pulled at runtime via `op` CLI. SSH private keys
+are served by the 1Password SSH agent and never touch disk.
 
-- encrypted files live under `secrets/`
-- `bin/rig` handles decrypt, edit, import, rekey, and bootstrap flows
-- consumers read runtime plaintext from `$XDG_STATE_HOME/dotfiles/secrets`
-
-That model currently fits the repo shape: two Darwin hosts, a small secret
-surface, and a clear separation between encrypted repo state and runtime
-plaintext files.
+The `secrets/manifest` file maps scopes and local paths to `op://` URIs.
+`rig secrets pull` reads the manifest and populates the runtime secrets
+directory.
 
 ## Decision
 
-Do not add `agenix` yet.
+Do not add `agenix`. There is no age encryption to manage declaratively.
 
-The current `rig` + `age` workflow is good enough, and adopting `agenix` now
-would mostly duplicate working custom machinery without enough payoff.
+The 1Password CLI approach removes encrypted files from the repo entirely,
+which is a stronger security posture than age-encrypted files at rest.
 
-## Why not now
+## Previous context
 
-The current setup already covers the practical needs of this repo:
+Before this change, the repo used age-encrypted files in `secrets/` with
+identity keys bootstrapped from Proton Pass via `pass-cli`. That layer was
+removed because:
 
-- encrypted secrets are safe to commit
-- host-specific and shared secret scopes already exist
-- bootstrap and day-to-day secret management already have one normal entrypoint
-- Home Manager and host modules already consume runtime secret files directly
-
-`agenix` would improve some aspects later, but those benefits are not strong
-enough yet to justify migration cost and added Nix surface area.
-
-## What `agenix` would improve later
-
-If the repo grows, `agenix` would bring a few concrete advantages:
-
-- declarative per-secret destination, owner, group, and mode
-- tighter Nix integration for service secrets
-- less custom shell logic if secret management keeps expanding
-- secret declarations closer to the modules and services that consume them
-
-## Revisit when
-
-Revisit this decision if any of these become true:
-
-- more hosts are added
-- more services start consuming managed secrets
-- secret ownership or mode management becomes painful
-- secret declarations feel too far from the modules that consume them
-- maintaining `rig secrets ...` starts taking noticeable time
-
-## Migration shape if revisited
-
-If `agenix` becomes worth it later, migrate incrementally:
-
-- start with one host or one service class, not the whole tree at once
-- keep the current age recipient model where practical
-- avoid replacing the Proton Pass bootstrap flow unless that workflow is being
-  intentionally redesigned
-
-The goal of a future migration would be to reduce operational complexity, not
-to replace working pieces for stylistic reasons.
+- The `secrets/` tree was empty (no `.age` files existed)
+- 1Password provides both a CLI for secret retrieval and an SSH agent
+- Eliminating encrypted files at rest simplifies the trust model
+- A single `curl | sh` bootstrap flow becomes possible without age key management

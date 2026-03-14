@@ -159,7 +159,7 @@ in
       stateDir = mkOption {
         type = types.str;
         default = "~/.local/state/platform/secrets";
-        description = "Directory where age-encrypted repo files are decrypted at runtime.";
+        description = "Runtime secrets directory populated by rig secrets pull.";
       };
     };
 

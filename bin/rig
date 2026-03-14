@@ -112,7 +112,7 @@ Commands:
   update                   Update flake inputs
   host [host]              Print the detected default host
   hosts                    List known hosts
-  secrets <subcommand>     Manage age-encrypted repo secrets
+  secrets <subcommand>     Manage secrets via 1Password CLI
   install-hooks            Configure git to use the tracked pre-commit hook
   help [command]           Show help for rig or a command
 
@@ -124,8 +124,8 @@ Examples:
   rig fmt
   rig help deploy
   RIG_HOST=sigil rig deploy
-  rig secrets decrypt
-  rig secrets edit shared/git/config.inc
+  rig secrets pull
+  rig secrets scan
 EOF
 }
 
@@ -135,21 +135,18 @@ Usage: rig bootstrap [host]
 
 First-run activation flow for a host.
 
-- Ensures the age identity directory exists
-- Restores the age identity from Proton Pass if needed
-- Refreshes decrypted secrets when the repo has encrypted material
+- Installs op CLI if not found
+- Ensures 1Password is signed in
+- Pulls secrets from 1Password via the manifest
 - Builds and activates the target host
 
 Environment:
-  AGE_IDENTITIES_FILE      Override the age identity file used for decryption
-  PLATFORM_SECRETS_DIR     Override the runtime decrypt directory
-  PROTON_PASS_AGE_IDENTITY_REF  Override the Proton Pass reference used to restore keys.txt
+  PLATFORM_SECRETS_DIR     Override the runtime secrets directory
   RIG_HOST                 Override auto-detected host slug
 
 Examples:
   rig bootstrap
   rig bootstrap sigil
-  PROTON_PASS_AGE_IDENTITY_REF=pass://Personal/age-identity/note rig bootstrap sigil
 EOF
 }
 
@@ -186,26 +183,17 @@ usage_secrets() {
 Usage: rig secrets <subcommand> [args]
 
 Secrets subcommands:
-  decrypt [host]           Decrypt shared and host-specific secrets into XDG state
-  decrypt-work             Decrypt shared and work secrets (no host required)
-  edit <path>              Edit a secrets/* file in plaintext, then re-encrypt it
-  import <src> <path>      Encrypt an existing plaintext file into secrets/*
-  init-host [host]         Create or update the host recipient file from your age key
-  recipient [host]         Print the first configured recipient for a host
-  rekey [path]             Re-encrypt one secret or all secrets with current recipients
+  pull [host]              Pull secrets from 1Password into XDG state
   scan                     Scan tracked files for likely plaintext secrets
 
 Environment:
-  AGE_IDENTITIES_FILE      Override the age identity file used for decryption
-  PLATFORM_SECRETS_DIR     Override the runtime decrypt directory
+  PLATFORM_SECRETS_DIR     Override the runtime secrets directory
   RIG_HOST                 Override auto-detected host slug
 
 Examples:
-  rig secrets decrypt
-  rig secrets edit shared/git/config.inc
-  rig secrets init-host sigil
-  rig secrets import ~/.ssh/sigil hosts/sigil/ssh/sigil
-  rig secrets rekey
+  rig secrets pull
+  rig secrets pull sigil
+  rig secrets scan
 EOF
 }
 
@@ -249,13 +237,7 @@ EOF
 
 secrets_command_list() {
   cat <<'EOF'
-decrypt
-decrypt-work
-edit
-import
-init-host
-recipient
-rekey
+pull
 scan
 help
 EOF
@@ -597,109 +579,43 @@ secret_state_dir() {
   printf '%s\n' "${PLATFORM_SECRETS_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/platform/secrets}"
 }
 
-secret_tree_has_entries() {
-  [ -d "$repo_root/secrets" ] || return 1
-  find "$repo_root/secrets" -type f -name '*.age' -print -quit | grep -q .
+require_op() {
+  require_command op
 }
 
-ensure_local_bin_in_path() {
-  PATH="$HOME/.local/bin:$PATH"
-  export PATH
-}
-
-require_age() {
-  require_command age
-}
-
-require_age_keygen() {
-  require_command age-keygen
-}
-
-age_identity_file() {
-  printf '%s\n' "${AGE_IDENTITIES_FILE:-$HOME/.config/age/keys.txt}"
-}
-
-age_identity_dir() {
-  dirname "$(age_identity_file)"
-}
-
-proton_pass_age_identity_ref() {
-  printf '%s\n' "${PROTON_PASS_AGE_IDENTITY_REF:-pass://Personal/age-identity/note}"
-}
-
-install_pass_cli() {
-  ensure_local_bin_in_path
-
-  if command -v pass-cli >/dev/null 2>&1; then
+install_op_cli() {
+  if command -v op >/dev/null 2>&1; then
     return 0
   fi
 
-  require_command nix
-  mkdir -p "$HOME/.local/bin"
+  printf '%s\n' "installing 1Password CLI" >&2
+  pkg_url="https://cache.agilebits.com/dist/1P/op2/pkg/v2.30.3/op_apple_universal_v2.30.3.pkg"
+  tmp_pkg="$(mktemp "${TMPDIR:-/tmp}/op-cli.XXXXXX.pkg")"
 
-  printf '%s\n' "installing Proton Pass CLI to $HOME/.local/bin" >&2
-  PROTON_PASS_CLI_INSTALL_DIR="$HOME/.local/bin" \
-    nix_cmd shell nixpkgs#curl nixpkgs#jq --command sh -c \
-      'curl -fsSL https://proton.me/download/pass-cli/install.sh | bash'
-
-  command -v pass-cli >/dev/null 2>&1 || die "failed to install pass-cli"
-}
-
-bootstrap_age_identity_from_proton_pass() {
-  identity_file="$(age_identity_file)"
-  ref="$(proton_pass_age_identity_ref)"
-  temp_file="$(mktemp "${TMPDIR:-/tmp}/rig-age-identity.XXXXXX")"
-
-  cleanup_proton_temp() {
-    rm -f -- "$temp_file"
+  cleanup_op_pkg() {
+    rm -f -- "$tmp_pkg"
   }
+  trap cleanup_op_pkg EXIT HUP INT TERM
 
-  trap cleanup_proton_temp EXIT HUP INT TERM
-
-  install_pass_cli
-
-  if ! pass-cli info >/dev/null 2>&1; then
-    printf '%s\n' "logging into Proton Pass to restore $(basename "$identity_file")" >&2
-    pass-cli login
-  fi
-
-  pass-cli item view "$ref" >"$temp_file"
-  [ -s "$temp_file" ] || die "Proton Pass returned an empty value for $ref"
-
-  mv "$temp_file" "$identity_file"
-  chmod 600 "$identity_file"
+  curl -fsSL -o "$tmp_pkg" "$pkg_url"
+  sudo installer -pkg "$tmp_pkg" -target /
+  rm -f -- "$tmp_pkg"
   trap - EXIT HUP INT TERM
-  printf '%s\n' "restored age identity from Proton Pass: $ref" >&2
+
+  command -v op >/dev/null 2>&1 || die "failed to install op CLI"
 }
 
-ensure_age_identity_dir() {
-  identity_dir="$(age_identity_dir)"
-  mkdir -p "$identity_dir"
-  chmod 700 "$identity_dir"
-}
-
-require_age_identity() {
-  ensure_age_identity_dir
-  identity_file="$(age_identity_file)"
-  if [ ! -f "$identity_file" ]; then
-    bootstrap_age_identity_from_proton_pass
+ensure_op_signed_in() {
+  if op account list --format=json 2>/dev/null | grep -q '"url"'; then
+    return 0
   fi
-  chmod 600 "$identity_file"
-  printf '%s\n' "$identity_file"
+
+  printf '%s\n' "signing into 1Password (interactive)" >&2
+  eval "$(op signin)"
 }
 
-age_decrypt_file() {
-  encrypted_path="$1"
-  plaintext_path="$2"
-  identity_file="$(require_age_identity)"
-
-  age --decrypt -i "$identity_file" -o "$plaintext_path" "$encrypted_path"
-}
-
-local_age_recipient() {
-  identity_file="$(require_age_identity)"
-  require_age_keygen
-  age-keygen -y "$identity_file"
+secrets_manifest() {
+  printf '%s\n' "$repo_root/secrets/manifest"
 }
 
 reset_secret_state_dir() {
@@ -718,268 +634,63 @@ reset_secret_state_dir() {
   chmod 700 "$state_dir"
 }
 
-decrypt_secret_tree() {
-  source_dir="$1"
-  state_dir="$2"
+do_secrets_pull() {
+  host="$(resolve_host_arg "$@")"
+  state_dir="$(secret_state_dir)"
+  manifest="$(secrets_manifest)"
 
-  [ -d "$source_dir" ] || return 0
+  ensure_not_root
+  require_op
+  ensure_op_signed_in
 
-  find "$source_dir" -type f -name '*.age' | sort | while IFS= read -r encrypted; do
-    relative_path="${encrypted#$source_dir/}"
-    target_path="$state_dir/${relative_path%.age}"
+  [ -f "$manifest" ] || die "no secrets/manifest found"
 
-    mkdir -p "$(dirname "$target_path")"
-    age_decrypt_file "$encrypted" "$target_path"
-    chmod 600 "$target_path"
-  done
-}
+  reset_secret_state_dir "$state_dir"
 
-normalize_secret_path() {
-  secret_path="$1"
-
-  case "$secret_path" in
-    "$repo_root"/secrets/*)
-      secret_path="${secret_path#"$repo_root"/secrets/}"
-      ;;
-    secrets/*)
-      secret_path="${secret_path#secrets/}"
-      ;;
-  esac
-
-  case "$secret_path" in
-    ""|/*|../*|*/../*|*/..)
-      die "secret path must stay under secrets/: $1"
-      ;;
-  esac
-
-  case "$secret_path" in
-    *.age)
-      ;;
-    *)
-      secret_path="$secret_path.age"
-      ;;
-  esac
-
-  printf '%s\n' "$secret_path"
-}
-
-secret_abs_path() {
-  printf '%s\n' "$repo_root/secrets/$(normalize_secret_path "$1")"
-}
-
-find_recipients_file() {
-  target_path="$1"
-  search_dir="$(dirname "$target_path")"
-
-  while :; do
-    candidate="$search_dir/.age-recipients"
-    if [ -f "$candidate" ]; then
-      printf '%s\n' "$candidate"
-      return 0
-    fi
-
-    if [ "$search_dir" = "$repo_root/secrets" ]; then
-      break
-    fi
-
-    parent_dir="$(dirname "$search_dir")"
-    if [ "$parent_dir" = "$search_dir" ]; then
-      break
-    fi
-    search_dir="$parent_dir"
-  done
-
-  die "no .age-recipients found for $(normalize_secret_path "$target_path")"
-}
-
-encrypt_secret_file() {
-  plaintext_path="$1"
-  encrypted_path="$2"
-  recipients_file="$(find_recipients_file "$encrypted_path")"
-
-  set --
-  while IFS= read -r recipient || [ -n "$recipient" ]; do
-    case "$recipient" in
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
       ""|\#*)
         continue
         ;;
     esac
-    set -- "$@" -r "$recipient"
-  done < "$recipients_file"
 
-  [ "$#" -gt 0 ] || die "no age recipients found in $recipients_file"
+    scope="$(printf '%s\n' "$line" | awk '{ print $1 }')"
+    local_path="$(printf '%s\n' "$line" | awk '{ print $2 }')"
+    op_uri="$(printf '%s\n' "$line" | awk '{ print $3 }')"
 
-  mkdir -p "$(dirname "$encrypted_path")"
-  age --encrypt "$@" -o "$encrypted_path" "$plaintext_path"
+    case "$scope" in
+      shared)
+        ;;
+      work)
+        host_has_profile "$host" work || continue
+        ;;
+      host:*)
+        scope_host="${scope#host:}"
+        [ "$scope_host" = "$host" ] || continue
+        ;;
+      *)
+        printf '%s\n' "warning: unknown scope '$scope', skipping" >&2
+        continue
+        ;;
+    esac
+
+    target_path="$state_dir/$local_path"
+    mkdir -p "$(dirname "$target_path")"
+    op read "$op_uri" > "$target_path"
+    chmod 600 "$target_path"
+    printf '%s\n' "  $local_path"
+  done < "$manifest"
+
+  printf '%s\n' "pulled secrets to $state_dir"
 }
 
-open_secret_in_editor() {
-  plaintext_path="$1"
-  editor_cmd="${VISUAL:-${EDITOR:-vi}}"
-  sh -c "$editor_cmd \"\$1\"" sh "$plaintext_path"
-}
+maybe_pull_secrets() {
+  host="$1"
+  manifest="$(secrets_manifest)"
 
-host_recipients_path() {
-  host="$(resolve_host_arg "$@")"
-  printf '%s\n' "$repo_root/secrets/hosts/$host/.age-recipients"
-}
-
-first_recipient_in_file() {
-  recipients_file="$1"
-  grep -Ev '^[[:space:]]*($|#)' "$recipients_file" | head -n 1
-}
-
-do_secrets_decrypt() {
-  host="$(resolve_host_arg "$@")"
-  state_dir="$(secret_state_dir)"
-
-  ensure_not_root
-  require_age
-
-  [ -d "$repo_root/secrets" ] || die "no secrets/ directory found"
-
-  reset_secret_state_dir "$state_dir"
-  decrypt_secret_tree "$repo_root/secrets/shared" "$state_dir"
-
-  if host_has_profile "$host" work; then
-    decrypt_secret_tree "$repo_root/secrets/work" "$state_dir"
+  if [ -f "$manifest" ]; then
+    do_secrets_pull "$host"
   fi
-
-  decrypt_secret_tree "$repo_root/secrets/hosts/$host" "$state_dir"
-  printf '%s\n' "decrypted secrets to $state_dir"
-}
-
-do_secrets_decrypt_work() {
-  state_dir="$(secret_state_dir)"
-
-  ensure_not_root
-  require_age
-
-  [ -d "$repo_root/secrets/work" ] || die "no secrets/work/ directory found"
-
-  reset_secret_state_dir "$state_dir"
-  decrypt_secret_tree "$repo_root/secrets/shared" "$state_dir"
-  decrypt_secret_tree "$repo_root/secrets/work" "$state_dir"
-  printf '%s\n' "decrypted work secrets to $state_dir"
-}
-
-do_secrets_edit() {
-  [ "$#" -ge 1 ] || die "usage: rig secrets edit <path>"
-
-  target_path="$(secret_abs_path "$1")"
-  plaintext_path="$(mktemp "${TMPDIR:-/tmp}/rig-secret.XXXXXX")"
-
-  ensure_not_root
-  require_age
-
-  cleanup_secret_edit() {
-    rm -f -- "$plaintext_path"
-  }
-
-  trap cleanup_secret_edit EXIT HUP INT TERM
-
-  if [ -f "$target_path" ]; then
-    age_decrypt_file "$target_path" "$plaintext_path"
-  else
-    : > "$plaintext_path"
-    chmod 600 "$plaintext_path"
-  fi
-
-  open_secret_in_editor "$plaintext_path"
-  encrypt_secret_file "$plaintext_path" "$target_path"
-  trap - EXIT HUP INT TERM
-  rm -f -- "$plaintext_path"
-  printf '%s\n' "updated $(normalize_secret_path "$1")"
-}
-
-rekey_secret_file() {
-  encrypted_path="$1"
-  plaintext_path="$(mktemp "${TMPDIR:-/tmp}/rig-secret.XXXXXX")"
-
-  cleanup_rekey_plaintext() {
-    rm -f -- "$plaintext_path"
-  }
-
-  trap cleanup_rekey_plaintext EXIT HUP INT TERM
-  age_decrypt_file "$encrypted_path" "$plaintext_path"
-  encrypt_secret_file "$plaintext_path" "$encrypted_path"
-  trap - EXIT HUP INT TERM
-  rm -f -- "$plaintext_path"
-}
-
-do_secrets_import() {
-  [ "$#" -eq 2 ] || die "usage: rig secrets import <src> <path>"
-
-  source_path="$1"
-  target_path="$(secret_abs_path "$2")"
-
-  ensure_not_root
-  require_age
-  [ -f "$source_path" ] || die "missing source file: $source_path"
-
-  encrypt_secret_file "$source_path" "$target_path"
-  printf '%s\n' "imported $source_path -> $(normalize_secret_path "$2")"
-}
-
-do_secrets_init_host() {
-  host="$(resolve_host_arg "$@")"
-  recipients_path="$(host_recipients_path "$host")"
-  recipients_dir="$(dirname "$recipients_path")"
-  recipient="$(local_age_recipient)"
-  temp_file="$(mktemp "${TMPDIR:-/tmp}/rig-recipients.XXXXXX")"
-
-  ensure_not_root
-  require_age
-  mkdir -p "$recipients_dir"
-
-  cleanup_recipients_temp() {
-    rm -f -- "$temp_file"
-  }
-
-  trap cleanup_recipients_temp EXIT HUP INT TERM
-
-  if [ -f "$recipients_path" ]; then
-    grep -Ev '^age1replacewithyourpublicrecipientx+$' "$recipients_path" >"$temp_file" || true
-  else
-    printf '%s\n' "# Age recipients for $host" >"$temp_file"
-  fi
-
-  if ! grep -Fxq "$recipient" "$temp_file"; then
-    printf '%s\n' "$recipient" >>"$temp_file"
-  fi
-
-  mv "$temp_file" "$recipients_path"
-  trap - EXIT HUP INT TERM
-  printf '%s\n' "initialized $recipients_path"
-}
-
-do_secrets_recipient() {
-  recipients_path="$(host_recipients_path "$@")"
-  [ -f "$recipients_path" ] || die "missing recipients file: $recipients_path"
-
-  recipient="$(first_recipient_in_file "$recipients_path" || true)"
-  [ -n "$recipient" ] || die "no recipients configured in $recipients_path"
-  printf '%s\n' "$recipient"
-}
-
-do_secrets_rekey() {
-  ensure_not_root
-  require_age
-
-  if [ "$#" -ge 1 ]; then
-    target="$(secret_abs_path "$1")"
-    [ -f "$target" ] || die "secret not found: $(normalize_secret_path "$1")"
-    rekey_secret_file "$target"
-    printf '%s\n' "rekeyed $(normalize_secret_path "$1")"
-    return 0
-  fi
-
-  [ -d "$repo_root/secrets" ] || die "no secrets/ directory found"
-
-  find "$repo_root/secrets" -type f -name '*.age' | sort | while IFS= read -r encrypted; do
-    rekey_secret_file "$encrypted"
-    printf '%s\n' "rekeyed ${encrypted#"$repo_root"/secrets/}"
-  done
 }
 
 do_secrets_scan() {
@@ -996,26 +707,8 @@ do_secrets() {
   fi
 
   case "$subcommand" in
-    decrypt)
-      do_secrets_decrypt "$@"
-      ;;
-    decrypt-work)
-      do_secrets_decrypt_work
-      ;;
-    edit)
-      do_secrets_edit "$@"
-      ;;
-    import)
-      do_secrets_import "$@"
-      ;;
-    init-host)
-      do_secrets_init_host "$@"
-      ;;
-    recipient)
-      do_secrets_recipient "$@"
-      ;;
-    rekey)
-      do_secrets_rekey "$@"
+    pull)
+      do_secrets_pull "$@"
       ;;
     scan)
       do_secrets_scan
@@ -1035,14 +728,6 @@ do_install_hooks() {
   cd "$repo_root"
   git config core.hooksPath hooks
   printf '%s\n' "configured git hooksPath to hooks"
-}
-
-maybe_decrypt_secrets() {
-  host="$1"
-
-  if secret_tree_has_entries; then
-    do_secrets_decrypt "$host"
-  fi
 }
 
 build_host_closure() {
@@ -1088,7 +773,7 @@ run_activation() {
     nix_cmd flake update
   fi
 
-  maybe_decrypt_secrets "$host"
+  maybe_pull_secrets "$host"
   build_host_closure "$host" "$kind"
   activate_built_host "$host" "$kind"
 }
@@ -1153,7 +838,7 @@ do_bootstrap() {
   require_command nix
   require_command sudo
   ensure_not_root
-  ensure_age_identity_dir
+  install_op_cli
 
   cd "$repo_root"
   run_activation "$host" "$kind" 0
