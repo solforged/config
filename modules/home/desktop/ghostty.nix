@@ -10,6 +10,7 @@ in
       enableZshIntegration = cfg.apps.shell == "zsh";
       settings = {
         "font-size" = 12;
+        "macos-option-as-alt" = true;
         theme = "dark:TokyoNight Storm,light:TokyoNight Storm";
         "scrollback-limit" = 1000000;
         keybind = [

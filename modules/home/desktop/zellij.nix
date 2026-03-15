@@ -59,6 +59,13 @@ in
                 bind "Alt j" { MoveFocus "Down"; }
                 bind "Alt k" { MoveFocus "Up"; }
                 bind "Alt l" { MoveFocusOrTab "Right"; }
+                bind "Alt p" { SwitchToMode "pane"; }
+                bind "Alt t" { SwitchToMode "tab"; }
+                bind "Alt r" { SwitchToMode "resize"; }
+                bind "Alt s" { SwitchToMode "scroll"; }
+                bind "Alt /" { SwitchToMode "EnterSearch"; SearchInput 0; }
+                bind "Alt o" { SwitchToMode "session"; }
+                bind "Alt m" { SwitchToMode "move"; }
                 bind "Alt n" { NewPane; }
                 bind "Alt v" { NewPane "Right"; }
                 bind "Alt b" { NewPane "Down"; }
@@ -135,6 +142,14 @@ in
                 bind "-" { Resize "Decrease"; }
             }
 
+            move {
+                bind "Alt [" { SwitchToMode "locked"; }
+                bind "h" { MovePane "Left"; }
+                bind "j" { MovePane "Down"; }
+                bind "k" { MovePane "Up"; }
+                bind "l" { MovePane "Right"; }
+            }
+
             scroll {
                 bind "Alt [" { SwitchToMode "locked"; }
                 bind "j" { ScrollDown; }
@@ -184,6 +199,13 @@ in
             shared_except "locked" {
                 bind "Alt [" { SwitchToMode "locked"; }
                 bind "Esc" { SwitchToMode "locked"; }
+                bind "Alt p" { SwitchToMode "pane"; }
+                bind "Alt t" { SwitchToMode "tab"; }
+                bind "Alt r" { SwitchToMode "resize"; }
+                bind "Alt s" { SwitchToMode "scroll"; }
+                bind "Alt /" { SwitchToMode "EnterSearch"; SearchInput 0; }
+                bind "Alt o" { SwitchToMode "session"; }
+                bind "Alt m" { SwitchToMode "move"; }
             }
 
             shared_except "locked" "pane" {
