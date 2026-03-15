@@ -21,7 +21,7 @@
       homebrew.enable = true;
       dock.enable = true;
       touchIdSudo.enable = true;
-      capsToCtrl.enable = true;
+      capsToEscape.enable = true;
     };
 
     music = {

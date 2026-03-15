@@ -15,6 +15,7 @@ in
   options.platform = {
     features.touchIdSudo.enable = mkEnableOption "enable Touch ID for sudo";
     features.capsToCtrl.enable = mkEnableOption "map Caps Lock to Control";
+    features.capsToEscape.enable = mkEnableOption "map Caps Lock to Escape";
 
     power.settings = mkOption {
       type = types.attrsOf (
@@ -53,6 +54,10 @@ in
 
       ${lib.optionalString cfg.features.capsToCtrl.enable ''
         /usr/bin/hidutil property --set '{"UserKeyMapping":[{"HIDKeyboardModifierMappingSrc":0x700000039,"HIDKeyboardModifierMappingDst":0x7000000e0}]}' >/dev/null 2>&1 || true
+      ''}
+
+      ${lib.optionalString cfg.features.capsToEscape.enable ''
+        /usr/bin/hidutil property --set '{"UserKeyMapping":[{"HIDKeyboardModifierMappingSrc":0x700000039,"HIDKeyboardModifierMappingDst":0x700000029}]}' >/dev/null 2>&1 || true
       ''}
     '';
   };
