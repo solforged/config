@@ -46,9 +46,10 @@ For a fresh macOS bootstrap:
    ./bin/rig bootstrap sigil
    ```
 
-`rig bootstrap` restores `~/.config/age/keys.txt` from Proton Pass when
-needed, decrypts secrets for the target host, builds the system, and runs the
-appropriate activation flow even before the machine is fully managed.
+`rig bootstrap` installs the 1Password CLI when needed, prompts for `op signin`
+when no account session is available, pulls manifest-backed secrets for the
+target host, builds the system, and runs the appropriate activation flow even
+before the machine is fully managed.
 
 If you want the raw first-run commands instead of the wrapper:
 
@@ -134,12 +135,8 @@ Or update and apply in one step:
 Common secrets commands:
 
 ```sh
-./bin/rig secrets decrypt
-./bin/rig secrets edit shared/git/config.inc
-./bin/rig secrets import ~/.ssh/sigil hosts/sigil/ssh/sigil
-./bin/rig secrets init-host sigil
-./bin/rig secrets recipient sigil
-./bin/rig secrets rekey
+./bin/rig secrets pull
+./bin/rig secrets pull sigil
 ./bin/rig secrets scan
 ./bin/rig install-hooks
 ```
@@ -163,7 +160,7 @@ The tracked pre-commit hook runs the same plaintext scan used by
   OpenClaw skill live next to the modules that consume them
 - `bin/rig`: wrapper for build, deploy, check, format, update, and secrets flows
 - `pkgs/`, `overlays/`: custom packages and overlays
-- `secrets/`: encrypted files safe to commit
+- `secrets/`: 1Password secret plumbing and manifest-driven file-backed secrets
 
 Choose the narrowest layer that matches the change:
 
@@ -202,29 +199,32 @@ or a shared module before copying host-specific config.
 Plaintext secrets do not belong in `*.nix` files or tracked config under
 `config/`.
 
-Encrypted files live under `secrets/` and are safe to commit:
+1Password is the source of truth for secrets. The repo keeps:
 
-- `secrets/shared/`: decrypted on every host
-- `secrets/work/`: decrypted only on hosts with the `work` profile
-- `secrets/hosts/<host>/`: decrypted only on that host
+- `secrets/manifest` for secrets that need to be materialized as files
+- `secrets/README.md` for the runtime model and manifest format
 
-Decrypted runtime material is written outside the repo:
+File-backed runtime material is written outside the repo:
 
 ```sh
-$XDG_STATE_HOME/dotfiles/secrets
+$XDG_STATE_HOME/platform/secrets
 ```
 
 If `XDG_STATE_HOME` is unset, `rig` falls back to:
 
 ```sh
-$HOME/.local/state/dotfiles/secrets
+$HOME/.local/state/platform/secrets
 ```
 
-`rig deploy` and `rig deploy --update` automatically refresh decrypted secrets
+`rig deploy` and `rig deploy --update` automatically refresh manifest-backed secrets
 before they build.
 
-For recipients, import/edit flows, rekeying, and file layout details, see
-[secrets/README.md](/Users/admin/.local/share/dotfiles/secrets/README.md).
+Some consumers should not persist secrets at all. Those integrations fetch
+directly from 1Password with `op read` at runtime and pass values through
+process-local environment variables instead.
+
+For manifest details and the file-backed versus env-only split, see
+[secrets/README.md](/Users/admin/dev/personal/repos/config/secrets/README.md).
 
 ## OpenClaw on sigil
 
@@ -239,21 +239,24 @@ interfaces.
   `IDENTITY.md`) are copied into the live workspace as regular files during
   activation because OpenClaw ignores workspace symlinks that resolve outside
   the workspace root.
-- Host-scoped OpenClaw secrets decrypt to
-  `$XDG_STATE_HOME/dotfiles/secrets/openclaw` on `sigil`.
 - The host module is
   [hosts/darwin/sigil/services/openclaw.nix](/Users/admin/.local/share/dotfiles/hosts/darwin/sigil/services/openclaw.nix).
 - Keep identifying or environment-specific OpenClaw files local in the
   workspace instead of committing them. Typical local-only files are
   `USER.md`, research-profile notes, and detailed `TOOLS.md` content.
 
-Create or refresh the encrypted secret files with:
+OpenClaw now reads its sensitive runtime values directly from 1Password at
+launch. The repo keeps only the `op://` references in the host module, while
+the actual values stay in 1Password and never land under
+`$XDG_STATE_HOME/platform/secrets`.
+
+Update or rotate the OpenClaw credentials by editing the corresponding
+1Password items referenced by:
 
 ```sh
-./bin/rig secrets edit hosts/sigil/openclaw/brave-api-key
-./bin/rig secrets edit hosts/sigil/openclaw/openai-api-key
-./bin/rig secrets edit hosts/sigil/openclaw/telegram-bot-token
-./bin/rig secrets edit hosts/sigil/openclaw/gateway-token
+op://Private/Brave Search/credential
+op://Private/Telegram Bot Token/credential
+op://Private/OpenClaw Gateway Token/credential
 ```
 
 Tailscale on `sigil` is managed as a host-specific dependency:
@@ -388,7 +391,7 @@ store.
 The initial config can reference these paths if you create them:
 
 - `modules/local/identity.nix`
-- `$XDG_STATE_HOME/dotfiles/secrets`
+- `$XDG_STATE_HOME/platform/secrets`
 - `~/.config/git/local.inc`
 - `~/.config/zsh/local.zsh`
 - `~/.ssh/config.local`
@@ -419,12 +422,13 @@ Host detection fails:
 RIG_HOST=atlas ./bin/rig build
 ```
 
-Missing age identity during bootstrap:
+1Password CLI not ready during bootstrap:
 
-- `rig bootstrap` creates `~/.config/age` automatically
-- if `~/.config/age/keys.txt` is missing, it will prompt for Proton Pass login
-- it then fetches `pass://Personal/age-identity/note`
-- override that reference with `PROTON_PASS_AGE_IDENTITY_REF` if needed
+- `rig bootstrap` installs the 1Password CLI when it is missing
+- it prompts for interactive `op signin` if no account session is available
+- `rig deploy` and `rig bootstrap` only materialize manifest-backed secrets
+  automatically; env-only secrets such as OpenClaw stay in 1Password and are
+  fetched by the service at launch time
 
 Fresh-machine host naming on the laptop:
 
@@ -455,12 +459,8 @@ Current upstream noise:
 ./bin/rig check
 ./bin/rig update
 ./bin/rig deploy --update
-./bin/rig secrets decrypt
-./bin/rig secrets edit shared/git/config.inc
-./bin/rig secrets import ~/.ssh/sigil hosts/sigil/ssh/sigil
-./bin/rig secrets init-host sigil
-./bin/rig secrets recipient sigil
-./bin/rig secrets rekey
+./bin/rig secrets pull
+./bin/rig secrets pull sigil
 ./bin/rig secrets scan
 ./bin/rig install-hooks
 ```

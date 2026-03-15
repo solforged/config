@@ -1,72 +1,62 @@
-# Encrypted Secrets
+# 1Password-backed Secrets
 
-This tree stores encrypted files that are safe to commit. Plaintext secrets do
-not belong in `*.nix` files or in tracked config under `config/`.
+Secrets do not live in this repo as encrypted blobs anymore. 1Password is the
+source of truth, and the repo only keeps the wiring that tells `rig` or a
+service where to fetch them from.
 
-## Layout
+## File-backed secrets
 
-- `shared/`: decrypted on every host
-- `work/`: decrypted only on hosts whose profile includes `"work"`
-- `hosts/<host>/`: decrypted only for that host
+`secrets/manifest` is for secrets that genuinely need to exist as files on
+disk, such as Git includes and allowed-signers data.
 
-All decrypted outputs are written outside the repo to:
+`rig secrets pull` reads the manifest and writes those files to:
 
 ```sh
-$XDG_STATE_HOME/dotfiles/secrets
+$XDG_STATE_HOME/platform/secrets
 ```
 
 If `XDG_STATE_HOME` is unset, `rig` falls back to:
 
 ```sh
-$HOME/.local/state/dotfiles/secrets
+$HOME/.local/state/platform/secrets
 ```
 
-The directory layout inside `secrets/` mirrors the runtime output path. For
-example:
-
-- `secrets/shared/git/config.inc.age` decrypts to `.../git/config.inc`
-- `secrets/work/zsh/local.zsh.age` decrypts to `.../zsh/local.zsh`
-- `secrets/hosts/atlas/ssh/config.age` decrypts to `.../ssh/config`
-
-## Recipients
-
-`rig secrets edit` and `rig secrets rekey` look for a `.age-recipients` file in
-the target directory and then walk upward until `secrets/`.
-
-Each `.age-recipients` file should contain one public recipient per line:
+The manifest format is:
 
 ```txt
-age1exampleexampleexampleexampleexampleexampleexampleexamplex
+<scope> <local-path> <op-uri>
 ```
 
-Copy the nearest `.age-recipients.example` file to `.age-recipients` before you
-start creating encrypted files, or let `rig` initialize the host file from your
-default age key:
+Supported scopes:
 
-```sh
-./bin/rig secrets init-host sigil
+- `shared`
+- `work`
+- `host:<name>`
+
+Example:
+
+```txt
+shared git/config op://Private/git-config/notesPlain
+host:sigil ssh/config op://Private/sigil-ssh-config/notesPlain
 ```
 
-By default `rig` decrypts with:
+## Env-only secrets
 
-```sh
-~/.config/age/keys.txt
-```
+Some consumers should not persist secrets to disk at all. Those integrations
+should read directly from 1Password at runtime with `op read` and pass the
+values through process-local environment variables.
 
-Override that with `AGE_IDENTITIES_FILE` if needed.
+`sigil`'s OpenClaw service follows that model for its gateway token, Telegram
+bot token, and Brave API key.
 
 ## Commands
 
 ```sh
-./bin/rig secrets decrypt
-./bin/rig secrets edit shared/git/config.inc
-./bin/rig secrets import ~/.ssh/sigil hosts/sigil/ssh/sigil
-./bin/rig secrets init-host sigil
-./bin/rig secrets recipient sigil
-./bin/rig secrets rekey
+./bin/rig secrets pull
+./bin/rig secrets pull sigil
 ./bin/rig secrets scan
 ./bin/rig install-hooks
 ```
 
-`rig deploy` and `rig deploy --update` automatically refresh decrypted secrets
-before they build.
+Update secret values in 1Password directly. Change this repo only when the
+local path, scope, or `op://` reference itself needs to move.

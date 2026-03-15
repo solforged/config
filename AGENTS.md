@@ -75,12 +75,11 @@ are the safe default.
 
 - Never commit plaintext secrets.
 - Never place secret values in `*.nix` files or tracked files under `config/`.
-- Files under `secrets/` must stay encrypted as `*.age`.
-- Use `./bin/rig secrets edit`, `./bin/rig secrets import`, and
-  `./bin/rig secrets rekey` for secret changes instead of editing encrypted
-  blobs by hand.
-- Decrypted runtime secret material belongs under
-  `$XDG_STATE_HOME/dotfiles/secrets` and must not be checked in.
+- Keep 1Password as the source of truth for secret values.
+- Use `./bin/rig secrets pull` for manifest-backed file secrets and
+  `./bin/rig secrets scan` to check tracked files for accidental plaintext.
+- Runtime secret material belongs under `$XDG_STATE_HOME/platform/secrets`
+  when it needs to exist on disk and must not be checked in.
 - Machine-local identity belongs in the gitignored
   `modules/local/identity.nix`, based on `modules/local/identity.example.nix`.
 

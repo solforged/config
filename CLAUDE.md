@@ -26,7 +26,7 @@ Host-centric Nix dotfiles for macOS (nix-darwin + Home Manager).
 - `profiles/` — reusable feature bundles (base, desktop, development, media, personal, work)
 - `modules/` — shared, platform, and Home Manager modules
 - `config/` — checked-in app config mounted by Home Manager
-- `secrets/` — encrypted `*.age` material only
+- `secrets/` — 1Password-backed manifest/docs for file and runtime secret flows
 
 Darwin hosts: `atlas` (work), `sigil` (personal)
 
@@ -62,7 +62,7 @@ Always use the wrapper:
 - `./bin/rig build` — build current host
 - `./bin/rig build <host>` — build a specific host
 - `./bin/rig hosts` — list known hosts
-- `./bin/rig secrets edit|import|rekey` — manage encrypted secrets
+- `./bin/rig secrets pull|scan` — manage 1Password-backed secret flows safely
 
 Note: `rig fmt` and `rig check` may fail in sandboxed environments (e.g., work laptops with restricted nix daemon access). If they fail with sandbox or daemon errors, report the failure rather than retrying or working around it.
 
@@ -75,9 +75,9 @@ Note: `rig fmt` and `rig check` may fail in sandboxed environments (e.g., work l
 
 ## Secrets
 
-- `secrets/` files must stay encrypted as `*.age`
-- Use `./bin/rig secrets edit|import|rekey` — never edit encrypted blobs by hand
-- Decrypted runtime material: `$XDG_STATE_HOME/dotfiles/secrets` (not tracked)
+- Keep 1Password as the source of truth for secret values
+- Use `./bin/rig secrets pull|scan` rather than ad hoc secret handling
+- Decrypted runtime material: `$XDG_STATE_HOME/platform/secrets` (not tracked)
 - Machine-local identity: gitignored `modules/local/identity.nix` (see `identity.example.nix`)
 
 ## Change guidance

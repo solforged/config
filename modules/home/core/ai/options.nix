@@ -15,7 +15,7 @@ in
 
     claude.settingsLocal = mkOption {
       type = types.attrsOf types.anything;
-      default = {};
+      default = { };
       description = "Content for ~/.claude/settings.local.json — user-local overrides merged on top of managed settings.json.";
     };
   };

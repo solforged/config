@@ -7,17 +7,16 @@
   ...
 }:
 let
-  inherit (lib) mkOption types;
   cfg = osConfig.platform;
   openclawCfg = cfg.openclaw;
   documentsDir = builtins.path {
     path = self.outPath + "/hosts/darwin/sigil/openclaw/documents";
     name = "openclaw-documents";
   };
-  secretDir = "${config.xdg.stateHome}/platform/secrets/openclaw";
   openclawStateDir = "${config.xdg.stateHome}/openclaw";
   openclawOAuthDir = "${openclawStateDir}/credentials";
   openclawWorkspaceDir = "${config.xdg.dataHome}/openclaw/workspace";
+  opCliBin = "/opt/homebrew/bin/op";
   installBin = lib.getExe' pkgs.coreutils "install";
   bootstrapDocNames = [
     "AGENTS.md"
@@ -36,6 +35,13 @@ let
   tailscaleHostName = cfg.host.slug;
   tailscaleMagicDnsName = openclawCfg.tailscaleMagicDnsName;
   telegramOwnerId = openclawCfg.telegramOwnerId;
+  # Keep the 1Password item refs close to the host-specific service wiring so
+  # rotating or relocating an item only requires one edit.
+  openclawSecretRefs = {
+    braveApiKey = "op://Private/Brave Search/credential";
+    gatewayToken = "op://Private/OpenClaw Gateway Token/credential";
+    telegramBotToken = "op://Private/Telegram Bot Token/credential";
+  };
 in
 {
   assertions = [
@@ -90,17 +96,6 @@ in
   home.activation.ensureOpenclawOAuthDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     /bin/mkdir -p "${openclawOAuthDir}"
     /bin/chmod 700 "${openclawOAuthDir}"
-  '';
-
-  home.activation.clearOpenclawGatewayTokenEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    /bin/launchctl unsetenv OPENCLAW_GATEWAY_TOKEN || true
-  '';
-
-  home.activation.ensureOpenclawBraveApiKeyEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    if [ -f "${secretDir}/brave-api-key" ]; then
-      key="$(${lib.getExe' pkgs.coreutils "cat"} "${secretDir}/brave-api-key")"
-      /bin/launchctl setenv BRAVE_API_KEY "$key"
-    fi
   '';
 
   home.activation.ensureOpenclawTailscaleHostname = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
@@ -184,7 +179,11 @@ in
 
         channels.telegram = {
           enabled = true;
-          tokenFile = "${secretDir}/telegram-bot-token";
+          botToken = {
+            source = "env";
+            provider = "default";
+            id = "TELEGRAM_BOT_TOKEN";
+          };
           allowFrom = [
             telegramOwnerId
           ];
@@ -242,12 +241,32 @@ in
     "/bin/sh"
     "-c"
     ''
-      tokenFile="${secretDir}/gateway-token"
-      if [ ! -f "$tokenFile" ]; then
-        echo "missing $tokenFile" >&2
+      op_bin="${opCliBin}"
+      if [ ! -x "$op_bin" ]; then
+        echo "missing 1Password CLI at $op_bin" >&2
         exit 1
       fi
-      OPENCLAW_GATEWAY_TOKEN="$(${lib.getExe' pkgs.coreutils "cat"} "$tokenFile")" \
+
+      read_secret() {
+        ref="$1"
+        name="$2"
+
+        value="$("$op_bin" read "$ref" 2>/dev/null)" || {
+          echo "failed to read $name from $ref; verify the item reference and that 1Password CLI is signed in" >&2
+          exit 1
+        }
+
+        if [ -z "$value" ]; then
+          echo "empty value returned for $name from $ref" >&2
+          exit 1
+        fi
+
+        printf '%s' "$value"
+      }
+
+      OPENCLAW_GATEWAY_TOKEN="$(read_secret "${openclawSecretRefs.gatewayToken}" "OPENCLAW_GATEWAY_TOKEN")" \
+      TELEGRAM_BOT_TOKEN="$(read_secret "${openclawSecretRefs.telegramBotToken}" "TELEGRAM_BOT_TOKEN")" \
+      BRAVE_API_KEY="$(read_secret "${openclawSecretRefs.braveApiKey}" "BRAVE_API_KEY")" \
         exec "${pkgs.openclaw-gateway}/bin/openclaw" gateway --port 18789
     ''
   ];

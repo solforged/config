@@ -134,6 +134,12 @@ in
         default = "none";
         description = "Preferred password manager integration.";
       };
+
+      passwordManagerSshAgentSocket = mkOption {
+        type = types.str;
+        default = "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
+        description = "SSH agent socket path used when the selected password manager exposes one.";
+      };
     };
 
     local = {

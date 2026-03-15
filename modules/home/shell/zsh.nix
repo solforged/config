@@ -71,14 +71,14 @@ in
       ];
 
       sessionVariables = {
-        PLATFORM_DIR = "${config.xdg.dataHome}/platform";
+        PLATFORM_DIR = "$HOME/dev/personal/repos/config";
       };
 
       dirHashes = {
         cache = config.xdg.cacheHome;
         cfg = config.xdg.configHome;
         data = config.xdg.dataHome;
-        pf = "${config.xdg.dataHome}/platform";
+        cfp = "$HOME/dev/personal/repos/config";
         state = config.xdg.stateHome;
       };
 
@@ -102,9 +102,8 @@ in
         rd = "rig deploy";
         rdu = "rig deploy --update";
         rf = "rig fmt";
-        rse = "rig secrets edit";
-        rsi = "rig secrets import";
-        rsk = "rig secrets rekey";
+        rsp = "rig secrets pull";
+        rss = "rig secrets scan";
         tldr = "tldr --config-path ${config.xdg.configHome}/tldr/config.toml";
       };
 

@@ -9,7 +9,6 @@ let
   cfg = config.platform;
   isDarwin = lib.hasSuffix "darwin" cfg.host.platform;
   use1Password = cfg.apps.passwordManager == "1password";
-  opAgentSock = "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
   editorCommand =
     if cfg.apps.editor == "emacs" then
       "emacsclient -c -a emacs"
@@ -84,8 +83,9 @@ in
         TASKDATA = "${xdg.dataHome}/task";
         TASKRC = "${xdg.configHome}/task/taskrc";
         VISUAL = editorCommand;
-      } // lib.optionalAttrs (use1Password && isDarwin) {
-        SSH_AUTH_SOCK = opAgentSock;
+      }
+      // lib.optionalAttrs (use1Password && isDarwin) {
+        SSH_AUTH_SOCK = cfg.apps.passwordManagerSshAgentSocket;
       };
 
       programs.bat.enable = true;
