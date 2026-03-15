@@ -116,6 +116,7 @@ in
       browser = mkOption {
         type = types.enum [
           "brave"
+          "chatgpt-atlas"
           "safari"
           "none"
         ];

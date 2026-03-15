@@ -25,6 +25,7 @@ let
     };
     browser = {
       brave = "/Applications/Brave Browser.app";
+      chatgpt-atlas = "/Applications/ChatGPT Atlas.app";
       safari = "/System/Applications/Safari.app";
       none = null;
     };
@@ -110,6 +111,7 @@ in
         "$DOCKUTIL" --remove all --no-restart "$HOME" || true
         add_dock_item "/System/Applications/Apps.app"
         ${lib.concatMapStringsSep "\n" (path: ''add_dock_item "${path}"'') selectedDockApps}
+        add_dock_item "/Applications/Codex.app"
         add_dock_item "/System/Applications/Calendar.app"
         add_dock_item "/System/Applications/Mail.app"
         add_dock_item "/System/Applications/Music.app"

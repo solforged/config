@@ -13,7 +13,7 @@
       editor = "helix";
       enabledEditors = [ "helix" ];
       terminal = "ghostty";
-      browser = "brave";
+      browser = "chatgpt-atlas";
       passwordManager = "1password";
     };
 
