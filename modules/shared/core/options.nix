@@ -116,6 +116,7 @@ in
       browser = mkOption {
         type = types.enum [
           "brave"
+          "chatgpt-atlas"
           "safari"
           "none"
         ];
@@ -132,6 +133,12 @@ in
         ];
         default = "none";
         description = "Preferred password manager integration.";
+      };
+
+      passwordManagerSshAgentSocket = mkOption {
+        type = types.str;
+        default = "${config.platform.user.home}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
+        description = "SSH agent socket path used when the selected password manager exposes one.";
       };
     };
 
@@ -159,7 +166,7 @@ in
       stateDir = mkOption {
         type = types.str;
         default = "~/.local/state/platform/secrets";
-        description = "Directory where age-encrypted repo files are decrypted at runtime.";
+        description = "Runtime secrets directory populated by rig secrets pull.";
       };
     };
 

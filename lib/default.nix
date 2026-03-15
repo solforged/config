@@ -58,6 +58,7 @@ in
           localIdentityModule
         ]
         ++ [
+          inputs.sops-nix.darwinModules.sops
           inputs.determinate.darwinModules.default
           inputs.home-manager.darwinModules.home-manager
           ../modules/darwin
