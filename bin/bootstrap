@@ -82,8 +82,8 @@ ensure_op_signed_in() {
 # ── Clone config repo ────────────────────────────────────────────────
 
 clone_config_repo() {
-  repo_dir="${XDG_DATA_HOME:-$HOME/.local/share}/platform"
-  repo_url="${CONFIG_REPO_URL:-https://github.com/phrmendes/config.git}"
+  repo_dir="$HOME/dev/personal/repos/config"
+  repo_url="${CONFIG_REPO_URL:-https://github.com/solforged/config.git}"
 
   if [ -d "$repo_dir/.git" ]; then
     info "config repo already present at $repo_dir"
@@ -105,6 +105,6 @@ install_op_cli
 ensure_op_signed_in
 clone_config_repo
 
-repo_dir="${XDG_DATA_HOME:-$HOME/.local/share}/platform"
+repo_dir="$HOME/dev/personal/repos/config"
 info "running rig bootstrap $host"
 exec "$repo_dir/bin/rig" bootstrap "$host"
