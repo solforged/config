@@ -247,16 +247,18 @@ interfaces.
 
 OpenClaw now reads its sensitive runtime values directly from 1Password at
 launch. The repo keeps only the `op://` references in the host module, while
-the actual values stay in 1Password and never land under
+the actual values stay in 1Password and never land in git, the Nix store, or
 `$XDG_STATE_HOME/platform/secrets`.
 
-Update or rotate the OpenClaw credentials by editing the corresponding
+Update or rotate the OpenClaw credentials and host identifiers by editing the corresponding
 1Password items referenced by:
 
 ```sh
 op://Private/Brave Search/credential
 op://Private/Telegram Bot Token/credential
 op://Private/OpenClaw Gateway Token/credential
+op://Private/Telegram User Id/username
+op://Private/OpenClaw Gateway Token/hostname
 ```
 
 Tailscale on `sigil` is managed as a host-specific dependency:
@@ -276,10 +278,10 @@ tailscale set --hostname sigil
 
 Sign in through the Tailscale UI, approve the machine into the correct tailnet,
 and leave MagicDNS enabled. After that, OpenClaw can publish privately through
-`tailscale serve` without exposing the gateway beyond the tailnet. The
-configured node hostname is `sigil`, which resolves to the MagicDNS name
-`sigil.ussuri-alphard.ts.net`; OpenClaw reads that FQDN directly from
-`tailscale status --json`.
+`tailscale serve` without exposing the gateway beyond the tailnet. `sigil`
+keeps the node hostname set to `sigil`, while the OpenClaw launch wrapper reads
+the remote origin hostname from 1Password immediately before it writes the
+runtime `openclaw.json`.
 
 Host-specific validation and rollout:
 
@@ -357,12 +359,14 @@ Codex-first helper layer:
   directory when outside a repo
 - `codex-resume`: resume the most recent Codex session in the current git root
   by default, or pass the normal `codex resume` arguments explicitly
-- `openclaw-remote`: print the configured `dotfiles.ai.openclawRemoteUrl`, or
-  open it with `--open`
+- `openclaw-remote`: resolve the configured OpenClaw remote from either
+  `dotfiles.ai.openclawRemoteHostnameOpRef` or `dotfiles.ai.openclawRemoteUrl`,
+  then print it or open it with `--open`
 
-If `dotfiles.ai.openclawRemoteUrl` is set for a host, Home Manager also exports
-`OPENCLAW_REMOTE_URL` for shell use. `sigil` sets it to its Tailscale-served
-OpenClaw URL.
+If `dotfiles.ai.openclawRemoteHostnameOpRef` is set for a host, Home Manager
+exports `OPENCLAW_REMOTE_HOSTNAME_OP_REF` so `openclaw-remote` can resolve the
+hostname at invocation time. `OPENCLAW_REMOTE_URL` remains available for hosts
+that use a non-sensitive static URL instead.
 
 ## Neovim Workflow
 

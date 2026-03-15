@@ -24,11 +24,6 @@
       capsToCtrl.enable = true;
     };
 
-    openclaw = {
-      tailscaleMagicDnsName = "sigil.ussuri-alphard.ts.net";
-      telegramOwnerId = 7703164198;
-    };
-
     music = {
       enable = true;
       beets.enable = true;
@@ -36,6 +31,6 @@
       openclaw.enable = true;
     };
 
-    ai.openclawRemoteUrl = "https://sigil.ussuri-alphard.ts.net";
+    ai.openclawRemoteHostnameOpRef = "op://Private/OpenClaw Gateway Token/hostname";
   };
 }

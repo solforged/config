@@ -8,7 +8,6 @@
         ./preferences.nix
         ./packages.nix
         ./power.nix
-        ./services/options.nix
       ];
 
       nixpkgs.overlays = [

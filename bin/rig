@@ -889,10 +889,15 @@ do_fmt() {
   ensure_not_root
   cd "$repo_root"
 
+  set --
+
   old_ifs=$IFS
   IFS='
 '
-  set -- $(git ls-files '*.nix')
+  for path in $(git ls-files '*.nix'); do
+    [ -f "$path" ] || continue
+    set -- "$@" "$path"
+  done
   IFS=$old_ifs
 
   if [ "$#" -eq 0 ]; then
