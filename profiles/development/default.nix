@@ -19,18 +19,72 @@ in
     platform.ai.claude.settingsLocal = {
       permissions = {
         allow = [
+          # Built-in read-only tools
           "Read"
           "Glob"
           "Grep"
-          "LS"
-          "Search"
-          "Bash(find:*)"
-          "Bash(cat:*)"
-          "Bash(ls:*)"
-          "Bash(head:*)"
-          "Bash(tail:*)"
-          "Bash(rg:*)"
-          "Bash(git:*)"
+          "WebFetch"
+          "WebSearch"
+
+          # Read-only Bash — file inspection
+          "Bash(cat *)"
+          "Bash(head *)"
+          "Bash(tail *)"
+          "Bash(less *)"
+          "Bash(wc *)"
+          "Bash(file *)"
+          "Bash(stat *)"
+          "Bash(ls *)"
+          "Bash(tree *)"
+          "Bash(find *)"
+          "Bash(rg *)"
+          "Bash(fd *)"
+          "Bash(diff *)"
+          "Bash(sort *)"
+          "Bash(uniq *)"
+          "Bash(jq *)"
+          "Bash(du *)"
+          "Bash(df *)"
+
+          # Read-only Bash — system info
+          "Bash(which *)"
+          "Bash(echo *)"
+          "Bash(pwd)"
+          "Bash(env)"
+          "Bash(printenv *)"
+          "Bash(whoami)"
+          "Bash(hostname)"
+          "Bash(uname *)"
+          "Bash(date *)"
+
+          # Git — read-only operations
+          "Bash(git status*)"
+          "Bash(git log *)"
+          "Bash(git log)"
+          "Bash(git diff *)"
+          "Bash(git diff)"
+          "Bash(git show *)"
+          "Bash(git show)"
+          "Bash(git branch *)"
+          "Bash(git branch)"
+          "Bash(git remote *)"
+          "Bash(git tag *)"
+          "Bash(git tag)"
+          "Bash(git rev-parse *)"
+          "Bash(git ls-files *)"
+          "Bash(git ls-files)"
+          "Bash(git blame *)"
+          "Bash(git stash list*)"
+
+          # Nix — read-only
+          "Bash(nix eval *)"
+          "Bash(nix flake show *)"
+          "Bash(nix flake metadata *)"
+
+          # Read-only subagents
+          "Agent(Explore)"
+          "Agent(Plan)"
+          "Agent(claude-code-guide)"
         ];
         deny = [
           "Read(.env*)"
