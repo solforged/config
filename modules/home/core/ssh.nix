@@ -10,7 +10,6 @@ in
     text = lib.concatStringsSep "\n" (
       lib.optional (use1Password && isDarwin) "IdentityAgent \"${opAgentSock}\""
       ++ [
-        "Include ${cfg.secrets.stateDir}/ssh/config"
         "Include ${cfg.local.sshConfig}"
       ]
     );
