@@ -209,6 +209,49 @@ in
         layout {
             default_tab_template {
                 pane
+                pane size=1 borderless=true {
+                    plugin location="file:~/.config/zellij/plugins/zjstatus.wasm" {
+                        border_char "─"
+                        border_enabled "true"
+                        border_format "#[fg=#6c7086]{char}"
+                        border_position "top"
+                        format_center ""
+                        format_hide_on_overlength "true"
+                        format_left "{mode} {tabs}"
+                        format_precedence "lrc"
+                        format_right "{pipe_zjstatus_hints}{datetime}#[bg=#cba6f7,fg=#1e1e2e,bold] {session} "
+                        format_space ""
+                        hide_frame_for_single_pane "false"
+                        mode_entersearch "#[bg=#f9e2af,fg=#1e1e2e,bold]  ENTER SEARCH "
+                        mode_locked "#[bg=#cba6f7,fg=#1e1e2e,bold]  LOCK "
+                        mode_move "#[bg=#94e2d5,fg=#1e1e2e,bold]  MOVE "
+                        mode_normal "#[bg=#f5c2e7,fg=#1e1e2e,bold]  NORMAL "
+                        mode_pane "#[bg=#89b4fa,fg=#1e1e2e,bold]  PANE"
+                        mode_renamepane "#[bg=#cba6f7,fg=#1e1e2e,bold]  RENAME PANE "
+                        mode_renametab "#[bg=#cba6f7,fg=#1e1e2e,bold]  RENAME TAB "
+                        mode_resize "#[bg=#f38ba8,fg=#1e1e2e,bold]  RESIZE "
+                        mode_scroll "#[bg=#cdd6f4,fg=#1e1e2e,bold]  SCROLL "
+                        mode_search "#[bg=#f9e2af,fg=#1e1e2e,bold]  SEARCH "
+                        mode_session "#[bg=#f38ba8,fg=#1e1e2e,bold]  SESSION "
+                        mode_tab "#[bg=#b4befe,fg=#1e1e2e,bold]  TAB "
+                        mode_tmux "#[bg=#cdd6f4,fg=#1e1e2e,bold]  TMUX "
+                        pipe_zjstatus_hints_format "#[fg=#6c7086]{output} "
+                        tab_active "#[bg=#cba6f7,fg=#1e1e2e,bold] {index} {name} "
+                        tab_active_fullscreen "#[bg=#cba6f7,fg=#1e1e2e,bold] {fullscreen_indicator} {index} {name} "
+                        tab_active_sync "#[bg=#cba6f7,fg=#1e1e2e,bold] {sync_indicator} {index} {name} "
+                        tab_display_count "9"
+                        tab_floating_indicator "⬚"
+                        tab_fullscreen_indicator "󰊓"
+                        tab_normal "#[fg=#6c7086,bold] {index} {name} "
+                        tab_normal_fullscreen "#[fg=#6c7086,bold] {fullscreen_indicator} {index} {name} "
+                        tab_normal_sync "#[fg=#6c7086,bold] {sync_indicator} {index} {name} "
+                        tab_rename "#[bg=#b4befe,fg=#1e1e2e,bold] {index} {name} {floating_indicator} "
+                        tab_separator " "
+                        tab_sync_indicator "󰓦"
+                        tab_truncate_end_format "#[fg=#f9e2af]   +{count} "
+                        tab_truncate_start_format "#[fg=#f9e2af]  +{count}  "
+                    }
+                }
             }
 
             tab name="shell"
