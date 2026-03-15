@@ -104,15 +104,15 @@ usage_main() {
 Usage: rig <command> [args]
 
 Commands:
-  bootstrap [host]         First-run decrypt, build, and activate for a host
+  bootstrap [host]         One-shot setup: install deps, decrypt, build, activate
   build [host]             Build the host system closure
-  deploy [host] [--update] Build and activate the host
+  deploy [host] [options]  Build and activate the host
   check                    Run flake checks
   fmt                      Format the repository with the flake formatter
   update                   Update flake inputs
   host [host]              Print the detected default host
   hosts                    List known hosts
-  secrets <subcommand>     Manage age-encrypted repo secrets
+  secrets <subcommand>     Manage secrets via 1Password CLI
   install-hooks            Configure git to use the tracked pre-commit hook
   help [command]           Show help for rig or a command
 
@@ -124,8 +124,8 @@ Examples:
   rig fmt
   rig help deploy
   RIG_HOST=sigil rig deploy
-  rig secrets decrypt
-  rig secrets edit shared/git/config.inc
+  rig secrets pull
+  rig secrets scan
 EOF
 }
 
@@ -135,32 +135,30 @@ Usage: rig bootstrap [host]
 
 First-run activation flow for a host.
 
-- Ensures the age identity directory exists
-- Restores the age identity from Proton Pass if needed
-- Refreshes decrypted secrets when the repo has encrypted material
+- Installs Nix via the Determinate installer if not found
+- Decrypts age key from secrets/age-key.age (passphrase prompt)
 - Builds and activates the target host
 
 Environment:
-  AGE_IDENTITIES_FILE      Override the age identity file used for decryption
-  PLATFORM_SECRETS_DIR     Override the runtime decrypt directory
-  PROTON_PASS_AGE_IDENTITY_REF  Override the Proton Pass reference used to restore keys.txt
+  PLATFORM_SECRETS_DIR     Override the runtime secrets directory
   RIG_HOST                 Override auto-detected host slug
 
 Examples:
   rig bootstrap
   rig bootstrap sigil
-  PROTON_PASS_AGE_IDENTITY_REF=pass://Personal/age-identity/note rig bootstrap sigil
 EOF
 }
 
 usage_deploy() {
   cat <<'EOF'
-Usage: rig deploy [host] [--update]
+Usage: rig deploy [host] [--update] [--verbose]
 
 Build and activate the target host.
+On first deploy for a machine, rig prompts for the SOPS age passphrase.
 
 Options:
   -u, --update             Run `nix flake update` before build and activation
+  -v, --verbose            Show full unfiltered output instead of spinner
 
 Host resolution:
   - use the explicit host argument when provided
@@ -186,26 +184,15 @@ usage_secrets() {
 Usage: rig secrets <subcommand> [args]
 
 Secrets subcommands:
-  decrypt [host]           Decrypt shared and host-specific secrets into XDG state
-  decrypt-work             Decrypt shared and work secrets (no host required)
-  edit <path>              Edit a secrets/* file in plaintext, then re-encrypt it
-  import <src> <path>      Encrypt an existing plaintext file into secrets/*
-  init-host [host]         Create or update the host recipient file from your age key
-  recipient [host]         Print the first configured recipient for a host
-  rekey [path]             Re-encrypt one secret or all secrets with current recipients
+  pull                     Show info about sops-nix managed secrets
   scan                     Scan tracked files for likely plaintext secrets
 
-Environment:
-  AGE_IDENTITIES_FILE      Override the age identity file used for decryption
-  PLATFORM_SECRETS_DIR     Override the runtime decrypt directory
-  RIG_HOST                 Override auto-detected host slug
+File-based secrets are managed by sops-nix and decrypted at activation time.
+To edit secrets: sops secrets/secrets.yaml
 
 Examples:
-  rig secrets decrypt
-  rig secrets edit shared/git/config.inc
-  rig secrets init-host sigil
-  rig secrets import ~/.ssh/sigil hosts/sigil/ssh/sigil
-  rig secrets rekey
+  rig secrets pull
+  rig secrets scan
 EOF
 }
 
@@ -249,13 +236,7 @@ EOF
 
 secrets_command_list() {
   cat <<'EOF'
-decrypt
-decrypt-work
-edit
-import
-init-host
-recipient
-rekey
+pull
 scan
 help
 EOF
@@ -472,6 +453,213 @@ nix_cmd() {
   command nix --log-format raw "$@"
 }
 
+# ---------------------------------------------------------------------------
+# Terminal UI helpers — spinner + phased output for deploy
+# ---------------------------------------------------------------------------
+
+RIG_VERBOSE="${RIG_VERBOSE:-0}"
+
+_spinner_frames='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+_spinner_len=10
+
+# ANSI color codes
+_c_green='\033[32m'
+_c_red='\033[31m'
+_c_dim='\033[2m'
+_c_reset='\033[0m'
+
+is_interactive() {
+  [ "$RIG_VERBOSE" -eq 0 ] && [ -t 2 ]
+}
+
+has_terminal() {
+  [ -t 0 ] || [ -t 2 ] || [ -r /dev/tty ]
+}
+
+_cursor_hide() {
+  printf '\033[?25l' >&2
+}
+
+_cursor_show() {
+  printf '\033[?25h' >&2
+}
+
+_clear_line() {
+  printf '\r\033[2K' >&2
+}
+
+_now_seconds() {
+  date +%s
+}
+
+_format_duration() {
+  total="$1"
+  if [ "$total" -ge 60 ]; then
+    mins=$((total / 60))
+    secs=$((total % 60))
+    printf '%dm%ds' "$mins" "$secs"
+  else
+    printf '%ds' "$total"
+  fi
+}
+
+age_key_file() {
+  printf '%s\n' "$HOME/.config/sops/age/keys.txt"
+}
+
+has_age_key() {
+  [ -f "$(age_key_file)" ]
+}
+
+wait_for_enter() {
+  if [ -r /dev/tty ]; then
+    IFS= read -r _ </dev/tty
+  else
+    IFS= read -r _
+  fi
+}
+
+prompt_age_key_bootstrap() {
+  key_file="$(age_key_file)"
+
+  if ! has_terminal; then
+    die "missing SOPS age key at $key_file; rerun 'rig deploy' from an interactive terminal so rig can prompt for the passphrase"
+  fi
+
+  printf '\n' >&2
+  printf '%s\n' "First deployment on this machine needs your SOPS age passphrase." >&2
+  printf '%s\n' "rig will decrypt secrets/age-key.age into $key_file before continuing." >&2
+  printf '%s\n' "Press Enter to continue, or Ctrl-C to cancel." >&2
+  wait_for_enter
+}
+
+_print_success() {
+  msg="$1"
+  duration="$2"
+  if [ -n "$duration" ] && [ "$duration" -gt 0 ]; then
+    printf "${_c_green}✓${_c_reset} %s ${_c_dim}(%s)${_c_reset}\n" "$msg" "$(_format_duration "$duration")" >&2
+  else
+    printf "${_c_green}✓${_c_reset} %s\n" "$msg" >&2
+  fi
+}
+
+_print_failure() {
+  msg="$1"
+  printf "${_c_red}✗${_c_reset} %s\n" "$msg" >&2
+}
+
+# Warnings to suppress in spinner mode (noisy / expected during development)
+_is_suppressed_warning() {
+  case "$1" in
+    *"has uncommitted changes"*) return 0 ;;
+  esac
+  return 1
+}
+
+# run_phase "Building host" "Built host" command [args...]
+#
+# In interactive mode: shows a spinner while the command runs, updating with
+# the last line of output. On success prints a checkmark; on failure dumps
+# the full captured log.
+#
+# In non-interactive / verbose mode: runs the command with output passed through.
+run_phase() {
+  phase_label="$1"
+  phase_done="$2"
+  shift 2
+
+  if ! is_interactive; then
+    "$@"
+    return $?
+  fi
+
+  phase_log="$(mktemp "${TMPDIR:-/tmp}/rig-phase.XXXXXX")"
+  phase_start="$(_now_seconds)"
+
+  # Ensure cleanup and cursor restore on any exit
+  _phase_cleanup() {
+    _cursor_show
+    rm -f -- "$phase_log"
+  }
+  trap _phase_cleanup EXIT HUP INT TERM
+
+  _cursor_hide
+
+  # Run command in background, capturing all output
+  "$@" >"$phase_log" 2>&1 &
+  phase_pid=$!
+
+  frame=0
+  max_width="${COLUMNS:-80}"
+
+  while kill -0 "$phase_pid" 2>/dev/null; do
+    last="$(tail -1 "$phase_log" 2>/dev/null || true)"
+
+    # Pick spinner frame
+    idx=$((frame % _spinner_len))
+    char=$(printf '%s' "$_spinner_frames" | cut -c "$((idx + 1))")
+
+    # Build status line: spinner + label, with detail text dimmed
+    if [ -n "$last" ]; then
+      status_line="${char} ${phase_label}... $(printf "${_c_dim}")${last}$(printf "${_c_reset}")"
+      # Plain version for length calculation (no ANSI escapes)
+      plain_line="$char $phase_label... $last"
+    else
+      status_line="${char} ${phase_label}..."
+      plain_line="$status_line"
+    fi
+
+    # Truncate to terminal width (based on visible character count)
+    if [ "${#plain_line}" -gt "$max_width" ]; then
+      # Rebuild truncated: cut the plain last-line portion
+      avail=$((max_width - ${#phase_label} - 6))
+      if [ "$avail" -gt 0 ] && [ -n "$last" ]; then
+        truncated_last="$(printf '%s' "$last" | cut -c "1-$avail")"
+        status_line="${char} ${phase_label}... $(printf "${_c_dim}")${truncated_last}$(printf "${_c_reset}")"
+      else
+        status_line="${char} ${phase_label}..."
+      fi
+    fi
+
+    _clear_line
+    printf '%s' "$status_line" >&2
+
+    frame=$((frame + 1))
+    sleep 0.1
+  done
+
+  # Collect exit status
+  phase_status=0
+  wait "$phase_pid" || phase_status=$?
+
+  phase_end="$(_now_seconds)"
+  phase_elapsed=$((phase_end - phase_start))
+
+  _clear_line
+  _cursor_show
+
+  if [ "$phase_status" -eq 0 ]; then
+    _print_success "$phase_done" "$phase_elapsed"
+    # Surface any non-suppressed warnings that would otherwise be hidden
+    if [ -s "$phase_log" ]; then
+      grep -i '^warning:' "$phase_log" | while IFS= read -r wline; do
+        _is_suppressed_warning "$wline" || printf "  ${_c_dim}%s${_c_reset}\n" "$wline" >&2
+      done
+    fi
+  else
+    _print_failure "$phase_label failed"
+    # Dump full log so the user can see what went wrong
+    if [ -s "$phase_log" ]; then
+      cat "$phase_log" >&2
+    fi
+  fi
+
+  rm -f -- "$phase_log"
+  trap - EXIT HUP INT TERM
+
+  return "$phase_status"
+}
+
 ensure_not_root() {
   if [ "$(id -u)" -eq 0 ]; then
     die "run rig as your normal user; it will invoke sudo only for activation"
@@ -597,389 +785,92 @@ secret_state_dir() {
   printf '%s\n' "${PLATFORM_SECRETS_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/platform/secrets}"
 }
 
-secret_tree_has_entries() {
-  [ -d "$repo_root/secrets" ] || return 1
-  find "$repo_root/secrets" -type f -name '*.age' -print -quit | grep -q .
+require_op() {
+  require_command op
 }
 
-ensure_local_bin_in_path() {
-  PATH="$HOME/.local/bin:$PATH"
-  export PATH
-}
-
-require_age() {
-  require_command age
-}
-
-require_age_keygen() {
-  require_command age-keygen
-}
-
-age_identity_file() {
-  printf '%s\n' "${AGE_IDENTITIES_FILE:-$HOME/.config/age/keys.txt}"
-}
-
-age_identity_dir() {
-  dirname "$(age_identity_file)"
-}
-
-proton_pass_age_identity_ref() {
-  printf '%s\n' "${PROTON_PASS_AGE_IDENTITY_REF:-pass://Personal/age-identity/note}"
-}
-
-install_pass_cli() {
-  ensure_local_bin_in_path
-
-  if command -v pass-cli >/dev/null 2>&1; then
+install_nix() {
+  if command -v nix >/dev/null 2>&1; then
     return 0
   fi
 
-  require_command nix
-  mkdir -p "$HOME/.local/bin"
+  printf '%s\n' "installing Nix (Determinate installer)" >&2
+  curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix \
+    | sh -s -- install --determinate
 
-  printf '%s\n' "installing Proton Pass CLI to $HOME/.local/bin" >&2
-  PROTON_PASS_CLI_INSTALL_DIR="$HOME/.local/bin" \
-    nix_cmd shell nixpkgs#curl nixpkgs#jq --command sh -c \
-      'curl -fsSL https://proton.me/download/pass-cli/install.sh | bash'
-
-  command -v pass-cli >/dev/null 2>&1 || die "failed to install pass-cli"
-}
-
-bootstrap_age_identity_from_proton_pass() {
-  identity_file="$(age_identity_file)"
-  ref="$(proton_pass_age_identity_ref)"
-  temp_file="$(mktemp "${TMPDIR:-/tmp}/rig-age-identity.XXXXXX")"
-
-  cleanup_proton_temp() {
-    rm -f -- "$temp_file"
-  }
-
-  trap cleanup_proton_temp EXIT HUP INT TERM
-
-  install_pass_cli
-
-  if ! pass-cli info >/dev/null 2>&1; then
-    printf '%s\n' "logging into Proton Pass to restore $(basename "$identity_file")" >&2
-    pass-cli login
+  # Source the Nix daemon environment so nix is available for the rest of bootstrap
+  if [ -e /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]; then
+    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
   fi
 
-  pass-cli item view "$ref" >"$temp_file"
-  [ -s "$temp_file" ] || die "Proton Pass returned an empty value for $ref"
-
-  mv "$temp_file" "$identity_file"
-  chmod 600 "$identity_file"
-  trap - EXIT HUP INT TERM
-  printf '%s\n' "restored age identity from Proton Pass: $ref" >&2
+  command -v nix >/dev/null 2>&1 || die "failed to install Nix"
 }
 
-ensure_age_identity_dir() {
-  identity_dir="$(age_identity_dir)"
-  mkdir -p "$identity_dir"
-  chmod 700 "$identity_dir"
-}
-
-require_age_identity() {
-  ensure_age_identity_dir
-  identity_file="$(age_identity_file)"
-  if [ ! -f "$identity_file" ]; then
-    bootstrap_age_identity_from_proton_pass
-  fi
-  chmod 600 "$identity_file"
-  printf '%s\n' "$identity_file"
-}
-
-age_decrypt_file() {
-  encrypted_path="$1"
-  plaintext_path="$2"
-  identity_file="$(require_age_identity)"
-
-  age --decrypt -i "$identity_file" -o "$plaintext_path" "$encrypted_path"
-}
-
-local_age_recipient() {
-  identity_file="$(require_age_identity)"
-  require_age_keygen
-  age-keygen -y "$identity_file"
-}
-
-reset_secret_state_dir() {
-  state_dir="$1"
-
-  case "$state_dir" in
-    */platform/secrets)
-      ;;
-    *)
-      die "refusing to clear unexpected secret state dir: $state_dir"
-      ;;
-  esac
-
-  rm -rf -- "$state_dir"
-  mkdir -p "$state_dir"
-  chmod 700 "$state_dir"
-}
-
-decrypt_secret_tree() {
-  source_dir="$1"
-  state_dir="$2"
-
-  [ -d "$source_dir" ] || return 0
-
-  find "$source_dir" -type f -name '*.age' | sort | while IFS= read -r encrypted; do
-    relative_path="${encrypted#$source_dir/}"
-    target_path="$state_dir/${relative_path%.age}"
-
-    mkdir -p "$(dirname "$target_path")"
-    age_decrypt_file "$encrypted" "$target_path"
-    chmod 600 "$target_path"
-  done
-}
-
-normalize_secret_path() {
-  secret_path="$1"
-
-  case "$secret_path" in
-    "$repo_root"/secrets/*)
-      secret_path="${secret_path#"$repo_root"/secrets/}"
-      ;;
-    secrets/*)
-      secret_path="${secret_path#secrets/}"
-      ;;
-  esac
-
-  case "$secret_path" in
-    ""|/*|../*|*/../*|*/..)
-      die "secret path must stay under secrets/: $1"
-      ;;
-  esac
-
-  case "$secret_path" in
-    *.age)
-      ;;
-    *)
-      secret_path="$secret_path.age"
-      ;;
-  esac
-
-  printf '%s\n' "$secret_path"
-}
-
-secret_abs_path() {
-  printf '%s\n' "$repo_root/secrets/$(normalize_secret_path "$1")"
-}
-
-find_recipients_file() {
-  target_path="$1"
-  search_dir="$(dirname "$target_path")"
-
-  while :; do
-    candidate="$search_dir/.age-recipients"
-    if [ -f "$candidate" ]; then
-      printf '%s\n' "$candidate"
-      return 0
-    fi
-
-    if [ "$search_dir" = "$repo_root/secrets" ]; then
-      break
-    fi
-
-    parent_dir="$(dirname "$search_dir")"
-    if [ "$parent_dir" = "$search_dir" ]; then
-      break
-    fi
-    search_dir="$parent_dir"
-  done
-
-  die "no .age-recipients found for $(normalize_secret_path "$target_path")"
-}
-
-encrypt_secret_file() {
-  plaintext_path="$1"
-  encrypted_path="$2"
-  recipients_file="$(find_recipients_file "$encrypted_path")"
-
-  set --
-  while IFS= read -r recipient || [ -n "$recipient" ]; do
-    case "$recipient" in
-      ""|\#*)
-        continue
-        ;;
-    esac
-    set -- "$@" -r "$recipient"
-  done < "$recipients_file"
-
-  [ "$#" -gt 0 ] || die "no age recipients found in $recipients_file"
-
-  mkdir -p "$(dirname "$encrypted_path")"
-  age --encrypt "$@" -o "$encrypted_path" "$plaintext_path"
-}
-
-open_secret_in_editor() {
-  plaintext_path="$1"
-  editor_cmd="${VISUAL:-${EDITOR:-vi}}"
-  sh -c "$editor_cmd \"\$1\"" sh "$plaintext_path"
-}
-
-host_recipients_path() {
-  host="$(resolve_host_arg "$@")"
-  printf '%s\n' "$repo_root/secrets/hosts/$host/.age-recipients"
-}
-
-first_recipient_in_file() {
-  recipients_file="$1"
-  grep -Ev '^[[:space:]]*($|#)' "$recipients_file" | head -n 1
-}
-
-do_secrets_decrypt() {
-  host="$(resolve_host_arg "$@")"
-  state_dir="$(secret_state_dir)"
-
-  ensure_not_root
-  require_age
-
-  [ -d "$repo_root/secrets" ] || die "no secrets/ directory found"
-
-  reset_secret_state_dir "$state_dir"
-  decrypt_secret_tree "$repo_root/secrets/shared" "$state_dir"
-
-  if host_has_profile "$host" work; then
-    decrypt_secret_tree "$repo_root/secrets/work" "$state_dir"
-  fi
-
-  decrypt_secret_tree "$repo_root/secrets/hosts/$host" "$state_dir"
-  printf '%s\n' "decrypted secrets to $state_dir"
-}
-
-do_secrets_decrypt_work() {
-  state_dir="$(secret_state_dir)"
-
-  ensure_not_root
-  require_age
-
-  [ -d "$repo_root/secrets/work" ] || die "no secrets/work/ directory found"
-
-  reset_secret_state_dir "$state_dir"
-  decrypt_secret_tree "$repo_root/secrets/shared" "$state_dir"
-  decrypt_secret_tree "$repo_root/secrets/work" "$state_dir"
-  printf '%s\n' "decrypted work secrets to $state_dir"
-}
-
-do_secrets_edit() {
-  [ "$#" -ge 1 ] || die "usage: rig secrets edit <path>"
-
-  target_path="$(secret_abs_path "$1")"
-  plaintext_path="$(mktemp "${TMPDIR:-/tmp}/rig-secret.XXXXXX")"
-
-  ensure_not_root
-  require_age
-
-  cleanup_secret_edit() {
-    rm -f -- "$plaintext_path"
-  }
-
-  trap cleanup_secret_edit EXIT HUP INT TERM
-
-  if [ -f "$target_path" ]; then
-    age_decrypt_file "$target_path" "$plaintext_path"
-  else
-    : > "$plaintext_path"
-    chmod 600 "$plaintext_path"
-  fi
-
-  open_secret_in_editor "$plaintext_path"
-  encrypt_secret_file "$plaintext_path" "$target_path"
-  trap - EXIT HUP INT TERM
-  rm -f -- "$plaintext_path"
-  printf '%s\n' "updated $(normalize_secret_path "$1")"
-}
-
-rekey_secret_file() {
-  encrypted_path="$1"
-  plaintext_path="$(mktemp "${TMPDIR:-/tmp}/rig-secret.XXXXXX")"
-
-  cleanup_rekey_plaintext() {
-    rm -f -- "$plaintext_path"
-  }
-
-  trap cleanup_rekey_plaintext EXIT HUP INT TERM
-  age_decrypt_file "$encrypted_path" "$plaintext_path"
-  encrypt_secret_file "$plaintext_path" "$encrypted_path"
-  trap - EXIT HUP INT TERM
-  rm -f -- "$plaintext_path"
-}
-
-do_secrets_import() {
-  [ "$#" -eq 2 ] || die "usage: rig secrets import <src> <path>"
-
-  source_path="$1"
-  target_path="$(secret_abs_path "$2")"
-
-  ensure_not_root
-  require_age
-  [ -f "$source_path" ] || die "missing source file: $source_path"
-
-  encrypt_secret_file "$source_path" "$target_path"
-  printf '%s\n' "imported $source_path -> $(normalize_secret_path "$2")"
-}
-
-do_secrets_init_host() {
-  host="$(resolve_host_arg "$@")"
-  recipients_path="$(host_recipients_path "$host")"
-  recipients_dir="$(dirname "$recipients_path")"
-  recipient="$(local_age_recipient)"
-  temp_file="$(mktemp "${TMPDIR:-/tmp}/rig-recipients.XXXXXX")"
-
-  ensure_not_root
-  require_age
-  mkdir -p "$recipients_dir"
-
-  cleanup_recipients_temp() {
-    rm -f -- "$temp_file"
-  }
-
-  trap cleanup_recipients_temp EXIT HUP INT TERM
-
-  if [ -f "$recipients_path" ]; then
-    grep -Ev '^age1replacewithyourpublicrecipientx+$' "$recipients_path" >"$temp_file" || true
-  else
-    printf '%s\n' "# Age recipients for $host" >"$temp_file"
-  fi
-
-  if ! grep -Fxq "$recipient" "$temp_file"; then
-    printf '%s\n' "$recipient" >>"$temp_file"
-  fi
-
-  mv "$temp_file" "$recipients_path"
-  trap - EXIT HUP INT TERM
-  printf '%s\n' "initialized $recipients_path"
-}
-
-do_secrets_recipient() {
-  recipients_path="$(host_recipients_path "$@")"
-  [ -f "$recipients_path" ] || die "missing recipients file: $recipients_path"
-
-  recipient="$(first_recipient_in_file "$recipients_path" || true)"
-  [ -n "$recipient" ] || die "no recipients configured in $recipients_path"
-  printf '%s\n' "$recipient"
-}
-
-do_secrets_rekey() {
-  ensure_not_root
-  require_age
-
-  if [ "$#" -ge 1 ]; then
-    target="$(secret_abs_path "$1")"
-    [ -f "$target" ] || die "secret not found: $(normalize_secret_path "$1")"
-    rekey_secret_file "$target"
-    printf '%s\n' "rekeyed $(normalize_secret_path "$1")"
+install_homebrew() {
+  if command -v brew >/dev/null 2>&1; then
     return 0
   fi
 
-  [ -d "$repo_root/secrets" ] || die "no secrets/ directory found"
+  printf '%s\n' "installing Homebrew" >&2
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-  find "$repo_root/secrets" -type f -name '*.age' | sort | while IFS= read -r encrypted; do
-    rekey_secret_file "$encrypted"
-    printf '%s\n' "rekeyed ${encrypted#"$repo_root"/secrets/}"
-  done
+  # Homebrew on Apple Silicon installs to /opt/homebrew
+  if [ -x /opt/homebrew/bin/brew ]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+  elif [ -x /usr/local/bin/brew ]; then
+    eval "$(/usr/local/bin/brew shellenv)"
+  fi
+
+  command -v brew >/dev/null 2>&1 || die "failed to install Homebrew"
+}
+
+install_op_cli() {
+  if command -v op >/dev/null 2>&1; then
+    return 0
+  fi
+
+  printf '%s\n' "installing 1Password CLI" >&2
+  pkg_url="https://cache.agilebits.com/dist/1P/op2/pkg/v2.30.3/op_apple_universal_v2.30.3.pkg"
+  tmp_pkg="$(mktemp "${TMPDIR:-/tmp}/op-cli.XXXXXX.pkg")"
+
+  cleanup_op_pkg() {
+    rm -f -- "$tmp_pkg"
+  }
+  trap cleanup_op_pkg EXIT HUP INT TERM
+
+  curl -fsSL -o "$tmp_pkg" "$pkg_url"
+  sudo installer -pkg "$tmp_pkg" -target /
+  rm -f -- "$tmp_pkg"
+  trap - EXIT HUP INT TERM
+
+  command -v op >/dev/null 2>&1 || die "failed to install op CLI"
+}
+
+ensure_op_signed_in() {
+  if op whoami >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if op account list --format=json 2>/dev/null | grep -q '"url"'; then
+    printf '%s\n' "re-authenticating 1Password" >&2
+    op signin
+  else
+    printf '%s\n' "no 1Password accounts configured — adding account (interactive)" >&2
+    op account add
+    op signin
+  fi
+
+  op whoami >/dev/null 2>&1 || die "1Password sign-in failed"
+}
+
+do_secrets_pull() {
+  printf '%s\n' "info: file-based secrets are now managed by sops-nix and decrypted at activation time." >&2
+  printf '%s\n' "hint: to edit secrets, run: sops secrets/secrets.yaml" >&2
+}
+
+maybe_pull_secrets() {
+  # sops-nix handles file-based secrets at activation time.
+  return 0
 }
 
 do_secrets_scan() {
@@ -996,26 +887,8 @@ do_secrets() {
   fi
 
   case "$subcommand" in
-    decrypt)
-      do_secrets_decrypt "$@"
-      ;;
-    decrypt-work)
-      do_secrets_decrypt_work
-      ;;
-    edit)
-      do_secrets_edit "$@"
-      ;;
-    import)
-      do_secrets_import "$@"
-      ;;
-    init-host)
-      do_secrets_init_host "$@"
-      ;;
-    recipient)
-      do_secrets_recipient "$@"
-      ;;
-    rekey)
-      do_secrets_rekey "$@"
+    pull)
+      do_secrets_pull "$@"
       ;;
     scan)
       do_secrets_scan
@@ -1035,14 +908,6 @@ do_install_hooks() {
   cd "$repo_root"
   git config core.hooksPath hooks
   printf '%s\n' "configured git hooksPath to hooks"
-}
-
-maybe_decrypt_secrets() {
-  host="$1"
-
-  if secret_tree_has_entries; then
-    do_secrets_decrypt "$host"
-  fi
 }
 
 build_host_closure() {
@@ -1068,10 +933,10 @@ activate_built_host() {
 
   case "$kind" in
     darwin)
-      exec sudo ./result/sw/bin/darwin-rebuild switch --flake ".#$host"
+      sudo ./result/sw/bin/darwin-rebuild switch --flake ".#$host"
       ;;
     nixos)
-      exec sudo ./result/bin/switch-to-configuration switch
+      sudo ./result/bin/switch-to-configuration switch
       ;;
     *)
       die "unsupported host kind: $kind"
@@ -1084,13 +949,40 @@ run_activation() {
   kind="$2"
   update_inputs="${3:-0}"
 
-  if [ "$update_inputs" -eq 1 ]; then
-    nix_cmd flake update
+  activation_start="$(_now_seconds)"
+
+  # Pre-cache sudo credentials so the password prompt doesn't collide
+  # with the spinner. In non-interactive mode this is a harmless no-op
+  # if credentials are already cached.
+  if is_interactive; then
+    sudo -v
   fi
 
-  maybe_decrypt_secrets "$host"
-  build_host_closure "$host" "$kind"
-  activate_built_host "$host" "$kind"
+  if [ "$update_inputs" -eq 1 ]; then
+    run_phase "Updating flake inputs" "Updated flake inputs" \
+      nix_cmd flake update
+  fi
+
+  if [ "$kind" = "darwin" ] && ! has_age_key; then
+    prompt_age_key_bootstrap
+    ensure_age_key
+    if has_terminal; then
+      _print_success "SOPS age key ready" 0
+    fi
+  fi
+
+  run_phase "Building $host" "Built $host" \
+    build_host_closure "$host" "$kind"
+
+  run_phase "Activating $host" "Activated $host" \
+    activate_built_host "$host" "$kind"
+
+  if is_interactive; then
+    activation_end="$(_now_seconds)"
+    activation_elapsed=$((activation_end - activation_start))
+    printf "\n${_c_green}✓${_c_reset} Deployed ${_c_green}%s${_c_reset} in %s\n" \
+      "$host" "$(_format_duration "$activation_elapsed")" >&2
+  fi
 }
 
 parse_deploy_args() {
@@ -1101,6 +993,9 @@ parse_deploy_args() {
     case "$1" in
       -u|--update)
         deploy_update=1
+        ;;
+      -v|--verbose)
+        RIG_VERBOSE=1
         ;;
       -h|--help)
         usage_deploy
@@ -1115,7 +1010,7 @@ parse_deploy_args() {
         ;;
       *)
         if [ -n "$deploy_host" ]; then
-          die "usage: rig deploy [host] [--update]"
+          die "usage: rig deploy [host] [--update] [--verbose]"
         fi
         deploy_host="$1"
         ;;
@@ -1125,7 +1020,7 @@ parse_deploy_args() {
 
   while [ "$#" -gt 0 ]; do
     if [ -n "$deploy_host" ]; then
-      die "usage: rig deploy [host] [--update]"
+      die "usage: rig deploy [host] [--update] [--verbose]"
     fi
     deploy_host="$1"
     shift
@@ -1139,6 +1034,22 @@ parse_deploy_args() {
   DEPLOY_UPDATE="$deploy_update"
 }
 
+ensure_age_key() {
+  key_file="$(age_key_file)"
+  [ -f "$key_file" ] && return 0
+
+  encrypted="$repo_root/secrets/age-key.age"
+  [ -f "$encrypted" ] || die "age-key.age not found in secrets/; see README"
+
+  mkdir -p "$(dirname "$key_file")"
+  if command -v age >/dev/null 2>&1; then
+    age -d -o "$key_file" "$encrypted"
+  else
+    nix_cmd shell nixpkgs#age -c age -d -o "$key_file" "$encrypted"
+  fi
+  chmod 600 "$key_file"
+}
+
 do_bootstrap() {
   case "${1:-}" in
     -h|--help)
@@ -1150,10 +1061,19 @@ do_bootstrap() {
   host="$(resolve_host_arg "$@")"
   kind="$(host_kind "$host")"
 
-  require_command nix
   require_command sudo
   ensure_not_root
-  ensure_age_identity_dir
+  install_nix
+  if ! host_has_profile "$host" work; then
+    install_homebrew
+  fi
+
+  # Determinate Nix installer may leave /etc/nix/nix.custom.conf which
+  # nix-darwin refuses to overwrite. Rename it out of the way on first run.
+  if [ -f /etc/nix/nix.custom.conf ]; then
+    printf '%s\n' "moving /etc/nix/nix.custom.conf aside for nix-darwin" >&2
+    sudo mv /etc/nix/nix.custom.conf /etc/nix/nix.custom.conf.before-nix-darwin
+  fi
 
   cd "$repo_root"
   run_activation "$host" "$kind" 0
@@ -1204,10 +1124,15 @@ do_fmt() {
   ensure_not_root
   cd "$repo_root"
 
+  set --
+
   old_ifs=$IFS
   IFS='
 '
-  set -- $(git ls-files '*.nix')
+  for path in $(git ls-files '*.nix'); do
+    [ -f "$path" ] || continue
+    set -- "$@" "$path"
+  done
   IFS=$old_ifs
 
   if [ "$#" -eq 0 ]; then

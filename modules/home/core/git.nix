@@ -7,7 +7,7 @@ in
     enable = true;
     includes = [
       {
-        path = "${cfg.secrets.stateDir}/git/config.inc";
+        path = "${cfg.secrets.stateDir}/git/config";
       }
       {
         path = cfg.local.gitInclude;

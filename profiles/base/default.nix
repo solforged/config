@@ -13,7 +13,6 @@ in
 
   config = lib.mkIf cfg.profiles.base.enable {
     platform.packages.home = with pkgs; [
-      age
       chafa
       fd
       ffmpeg
