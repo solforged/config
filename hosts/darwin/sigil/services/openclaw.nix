@@ -7,18 +7,18 @@
   ...
 }:
 let
-  inherit (lib) mkOption types;
   cfg = osConfig.platform;
-  openclawCfg = cfg.openclaw;
   documentsDir = builtins.path {
     path = self.outPath + "/hosts/darwin/sigil/openclaw/documents";
     name = "openclaw-documents";
   };
-  secretDir = "${config.xdg.stateHome}/platform/secrets/openclaw";
   openclawStateDir = "${config.xdg.stateHome}/openclaw";
   openclawOAuthDir = "${openclawStateDir}/credentials";
   openclawWorkspaceDir = "${config.xdg.dataHome}/openclaw/workspace";
+  opCliBin = "/opt/homebrew/bin/op";
   installBin = lib.getExe' pkgs.coreutils "install";
+  mktempBin = lib.getExe' pkgs.coreutils "mktemp";
+  pythonBin = lib.getExe pkgs.python3;
   bootstrapDocNames = [
     "AGENTS.md"
     "SOUL.md"
@@ -34,21 +34,100 @@ let
   );
   tailscaleBin = lib.getExe' pkgs.tailscale "tailscale";
   tailscaleHostName = cfg.host.slug;
-  tailscaleMagicDnsName = openclawCfg.tailscaleMagicDnsName;
-  telegramOwnerId = openclawCfg.telegramOwnerId;
+  # Keep the 1Password item refs close to the host-specific service wiring so
+  # rotating or relocating an item only requires one edit.
+  openclawSecretRefs = {
+    braveApiKey = "op://Private/Brave Search/credential";
+    gatewayToken = "op://Private/OpenClaw Gateway Token/credential";
+    gatewayHostname = "op://Private/OpenClaw Gateway Token/hostname";
+    telegramBotToken = "op://Private/Telegram Bot Token/credential";
+    telegramOwner = "op://Private/Telegram User Id/username";
+  };
+  openclawBaseConfig = {
+    secrets.providers = {
+      gatewaytoken = {
+        source = "env";
+      };
+    };
+
+    gateway = {
+      mode = "local";
+      bind = "loopback";
+      # Tailscale Serve reaches the loopback-bound gateway through a local proxy.
+      trustedProxies = [
+        "127.0.0.1"
+        "::1"
+      ];
+      controlUi.allowedOrigins = [
+        "http://127.0.0.1:18789"
+        "http://localhost:18789"
+      ];
+      auth = {
+        mode = "token";
+        token = {
+          source = "env";
+          provider = "gatewaytoken";
+          id = "OPENCLAW_GATEWAY_TOKEN";
+        };
+      };
+      tailscale = {
+        # OpenClaw reads the node's MagicDNS name from `tailscale status --json`.
+        mode = "serve";
+        resetOnExit = false;
+      };
+    };
+
+    channels.telegram = {
+      enabled = true;
+      botToken = {
+        source = "env";
+        provider = "default";
+        id = "TELEGRAM_BOT_TOKEN";
+      };
+      dmPolicy = "allowlist";
+      groupPolicy = "allowlist";
+      groups."*" = {
+        requireMention = true;
+      };
+    };
+
+    agents.defaults.model = {
+      primary = "openai-codex/gpt-5.4";
+      fallbacks = [
+        # Keep the non-OpenAI fallbacks disabled on sigil for now.
+        # "anthropic/claude-opus-4-6"
+        # "google-gemini-cli/gemini-3.1-pro"
+      ];
+    };
+
+    tools.web.search = {
+      enabled = true;
+      provider = "brave";
+      apiKey = {
+        source = "env";
+        provider = "default";
+        id = "BRAVE_API_KEY";
+      };
+    };
+
+    # Keep chat on Codex OAuth, but run semantic memory embeddings locally.
+    agents.defaults.memorySearch = {
+      provider = "local";
+      fallback = "none";
+      local = {
+        modelPath = "hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf";
+        modelCacheDir = "${openclawStateDir}/models";
+      };
+      sync.watch = true;
+    };
+  };
+  # Render a non-sensitive template into the store, then inject host-specific
+  # identifiers at launch so they never land in git or the Nix store.
+  openclawConfigTemplate = pkgs.writeText "openclaw-sigil-template.json" (
+    builtins.toJSON openclawBaseConfig
+  );
 in
 {
-  assertions = [
-    {
-      assertion = tailscaleMagicDnsName != null;
-      message = "platform.openclaw.tailscaleMagicDnsName must be set for OpenClaw hosts.";
-    }
-    {
-      assertion = telegramOwnerId != null;
-      message = "platform.openclaw.telegramOwnerId must be set for OpenClaw hosts.";
-    }
-  ];
-
   home.activation.prepareOpenclawConfig = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
     configPath="${openclawStateDir}/openclaw.json"
 
@@ -92,24 +171,13 @@ in
     /bin/chmod 700 "${openclawOAuthDir}"
   '';
 
-  home.activation.clearOpenclawGatewayTokenEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    /bin/launchctl unsetenv OPENCLAW_GATEWAY_TOKEN || true
-  '';
-
-  home.activation.ensureOpenclawBraveApiKeyEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    if [ -f "${secretDir}/brave-api-key" ]; then
-      key="$(${lib.getExe' pkgs.coreutils "cat"} "${secretDir}/brave-api-key")"
-      /bin/launchctl setenv BRAVE_API_KEY "$key"
-    fi
-  '';
-
   home.activation.ensureOpenclawTailscaleHostname = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     if "${tailscaleBin}" status --json >/dev/null 2>&1; then
       if ! "${tailscaleBin}" set --hostname "${tailscaleHostName}" >/dev/null 2>&1; then
-        /bin/echo "warning: unable to set Tailscale hostname to ${tailscaleHostName}; OpenClaw will keep using the current MagicDNS name." >&2
+        /bin/echo "warning: unable to set Tailscale hostname to ${tailscaleHostName}; OpenClaw will keep using its existing Tailscale origin." >&2
       fi
     else
-      /bin/echo "warning: Tailscale is not connected; start the app and run 'tailscale set --hostname ${tailscaleHostName}' so OpenClaw resolves ${tailscaleMagicDnsName}." >&2
+      /bin/echo "warning: Tailscale is not connected; start the app and run 'tailscale set --hostname ${tailscaleHostName}' before using OpenClaw remotely." >&2
     fi
   '';
 
@@ -147,88 +215,7 @@ in
       enable = true;
       stateDir = openclawStateDir;
       workspaceDir = openclawWorkspaceDir;
-      config = {
-        secrets.providers = {
-          gatewaytoken = {
-            source = "env";
-          };
-        };
-
-        gateway = {
-          mode = "local";
-          bind = "loopback";
-          # Tailscale Serve reaches the loopback-bound gateway through a local proxy.
-          trustedProxies = [
-            "127.0.0.1"
-            "::1"
-          ];
-          controlUi.allowedOrigins = [
-            "http://127.0.0.1:18789"
-            "http://localhost:18789"
-            "https://${tailscaleMagicDnsName}"
-          ];
-          auth = {
-            mode = "token";
-            token = {
-              source = "env";
-              provider = "gatewaytoken";
-              id = "OPENCLAW_GATEWAY_TOKEN";
-            };
-          };
-          tailscale = {
-            # OpenClaw reads the node's MagicDNS name from `tailscale status --json`.
-            mode = "serve";
-            resetOnExit = false;
-          };
-        };
-
-        channels.telegram = {
-          enabled = true;
-          tokenFile = "${secretDir}/telegram-bot-token";
-          allowFrom = [
-            telegramOwnerId
-          ];
-          dmPolicy = "allowlist";
-          # Telegram group senders are authorized separately from DMs/pairing.
-          groupAllowFrom = [
-            telegramOwnerId
-          ];
-          groupPolicy = "allowlist";
-          groups."*" = {
-            requireMention = true;
-          };
-        };
-
-        agents.defaults.model = {
-          primary = "openai-codex/gpt-5.4";
-          fallbacks = [
-            # Keep the non-OpenAI fallbacks disabled on sigil for now.
-            # "anthropic/claude-opus-4-6"
-            # "google-gemini-cli/gemini-3.1-pro"
-          ];
-        };
-
-        tools.web.search = {
-          enabled = true;
-          provider = "brave";
-          apiKey = {
-            source = "env";
-            provider = "default";
-            id = "BRAVE_API_KEY";
-          };
-        };
-
-        # Keep chat on Codex OAuth, but run semantic memory embeddings locally.
-        agents.defaults.memorySearch = {
-          provider = "local";
-          fallback = "none";
-          local = {
-            modelPath = "hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf";
-            modelCacheDir = "${openclawStateDir}/models";
-          };
-          sync.watch = true;
-        };
-      };
+      config = openclawBaseConfig;
       launchd.enable = true;
       appDefaults = {
         enable = true;
@@ -242,13 +229,88 @@ in
     "/bin/sh"
     "-c"
     ''
-      tokenFile="${secretDir}/gateway-token"
-      if [ ! -f "$tokenFile" ]; then
-        echo "missing $tokenFile" >&2
-        exit 1
-      fi
-      OPENCLAW_GATEWAY_TOKEN="$(${lib.getExe' pkgs.coreutils "cat"} "$tokenFile")" \
-        exec "${pkgs.openclaw-gateway}/bin/openclaw" gateway --port 18789
+            op_bin="${opCliBin}"
+            if [ ! -x "$op_bin" ]; then
+              echo "missing 1Password CLI at $op_bin" >&2
+              exit 1
+            fi
+
+            read_secret() {
+              ref="$1"
+              name="$2"
+
+              value="$("$op_bin" read "$ref" 2>/dev/null)" || {
+                echo "failed to read $name from $ref; verify the item reference and that 1Password CLI is signed in" >&2
+                exit 1
+              }
+
+              if [ -z "$value" ]; then
+                echo "empty value returned for $name from $ref" >&2
+                exit 1
+              fi
+
+              printf '%s' "$value"
+            }
+
+            config_path="${openclawStateDir}/openclaw.json"
+            template_path="${openclawConfigTemplate}"
+            tmp_path="$("${mktempBin}" "${openclawStateDir}/openclaw.json.XXXXXX")"
+            trap 'rm -f "$tmp_path"' EXIT
+
+            TELEGRAM_OWNER_ID="$(read_secret "${openclawSecretRefs.telegramOwner}" "TELEGRAM_OWNER_ID")"
+            OPENCLAW_TAILSCALE_HOSTNAME="$(read_secret "${openclawSecretRefs.gatewayHostname}" "OPENCLAW_TAILSCALE_HOSTNAME")"
+
+            "${pythonBin}" - "$template_path" "$tmp_path" "$TELEGRAM_OWNER_ID" "$OPENCLAW_TAILSCALE_HOSTNAME" <<'PY'
+      import json
+      import sys
+
+
+      def normalize_url(value: str) -> str:
+          value = value.strip().rstrip("/")
+          if not value:
+              raise ValueError("remote hostname is empty")
+          if "://" in value:
+              return value
+          return f"https://{value}"
+
+
+      template_path, output_path, telegram_owner_id_raw, tailscale_hostname = sys.argv[1:5]
+
+      try:
+          telegram_owner_id = int(telegram_owner_id_raw.strip())
+      except ValueError:
+          print("invalid TELEGRAM_OWNER_ID from 1Password; expected an integer", file=sys.stderr)
+          raise SystemExit(1)
+
+      with open(template_path, "r", encoding="utf-8") as handle:
+          config = json.load(handle)
+
+      try:
+          origin = normalize_url(tailscale_hostname)
+      except ValueError as exc:
+          print(f"invalid OPENCLAW_TAILSCALE_HOSTNAME from 1Password: {exc}", file=sys.stderr)
+          raise SystemExit(1)
+      allowed_origins = config["gateway"]["controlUi"]["allowedOrigins"]
+      if origin not in allowed_origins:
+          allowed_origins.append(origin)
+
+      telegram = config["channels"]["telegram"]
+      telegram["allowFrom"] = [telegram_owner_id]
+      telegram["groupAllowFrom"] = [telegram_owner_id]
+
+      with open(output_path, "w", encoding="utf-8") as handle:
+          json.dump(config, handle, indent=2)
+          handle.write("\n")
+      PY
+
+            /bin/chmod 600 "$tmp_path"
+            /bin/mv "$tmp_path" "$config_path"
+            trap - EXIT
+
+            OPENCLAW_GATEWAY_TOKEN="$(read_secret "${openclawSecretRefs.gatewayToken}" "OPENCLAW_GATEWAY_TOKEN")" \
+            TELEGRAM_BOT_TOKEN="$(read_secret "${openclawSecretRefs.telegramBotToken}" "TELEGRAM_BOT_TOKEN")" \
+            BRAVE_API_KEY="$(read_secret "${openclawSecretRefs.braveApiKey}" "BRAVE_API_KEY")" \
+              exec "${pkgs.openclaw-gateway}/bin/openclaw" gateway --port 18789
     ''
   ];
 }
