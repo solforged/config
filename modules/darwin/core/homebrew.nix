@@ -10,6 +10,7 @@ let
   appCaskCatalog = {
     browser = {
       brave = [ "brave-browser" ];
+      chatgpt-atlas = [ "chatgpt-atlas" ];
       safari = [ ];
       none = [ ];
     };

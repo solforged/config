@@ -17,35 +17,8 @@ let
     in
     lib.findFirst (pkg: pkg != null) pkgs.emacs candidates;
   emacsClient = lib.getExe' emacsPackage "emacsclient";
-  dockPaths = {
-    editor = {
-      emacs = "$HOME/Applications/Emacs Client.app";
-      helix = null;
-      nvim = null;
-    };
-    browser = {
-      brave = "/Applications/Brave Browser.app";
-      safari = "/System/Applications/Safari.app";
-      none = null;
-    };
-    terminal = {
-      ghostty = "/Applications/Ghostty.app";
-      kitty = "/Applications/kitty.app";
-      terminal = "/System/Applications/Utilities/Terminal.app";
-    };
-    passwordManager = {
-      "1password" = "/Applications/1Password.app";
-      bitwarden = "/Applications/Bitwarden.app";
-      proton-pass = "/Applications/Proton Pass.app";
-      none = null;
-    };
-  };
-  selectedDockApps = lib.filter (path: path != null && path != "") [
-    dockPaths.editor.${cfg.apps.editor}
-    dockPaths.browser.${cfg.apps.browser}
-    dockPaths.terminal.${cfg.apps.terminal}
-    dockPaths.passwordManager.${cfg.apps.passwordManager}
-  ];
+  emacsExe = lib.getExe emacsPackage;
+  dockItems = cfg.features.dock.items;
 in
 {
   config = lib.mkIf (isDarwin && cfg.features.dock.enable && cfg.profiles.desktop.enable) {
@@ -53,7 +26,7 @@ in
       DOCKUTIL="${lib.getExe pkgs.dockutil}"
 
       if [ -n "$DOCKUTIL" ] && [ -e "$HOME/Library/Preferences/com.apple.dock.plist" ]; then
-        ${lib.optionalString (cfg.apps.editor == "emacs") ''
+        ${lib.optionalString (builtins.elem "emacs" cfg.apps.enabledEditors) ''
           app_target="$HOME/Applications/Emacs Client.app"
           contents_dir="$app_target/Contents"
           macos_dir="$contents_dir/MacOS"
@@ -86,6 +59,10 @@ in
               <string>1.0</string>
               <key>CFBundleVersion</key>
               <string>1</string>
+              <key>LSRequiresNativeExecution</key>
+              <true/>
+              <key>LSUIElement</key>
+              <true/>
             </dict>
           </plist>
           EOF
@@ -93,28 +70,58 @@ in
           /bin/cp "${emacsPackage}/Applications/Emacs.app/Contents/Resources/Emacs.icns" \
             "$resources_dir/Emacs.icns"
 
-          cat > "$macos_dir/Emacs Client" <<EOF
-          #!${pkgs.runtimeShell}
-          exec ${emacsClient} -c -a emacs "\$@"
-          EOF
-
-          /bin/chmod +x "$macos_dir/Emacs Client"
+          # Use a compiled trampoline so macOS sees a native arm64 Mach-O
+          # and never prompts for Rosetta.
+          cat > /tmp/emacs-client-trampoline.c <<CSRC
+          #include <stdio.h>
+          #include <stdlib.h>
+          #include <unistd.h>
+          int main(int argc, char *argv[]) {
+            const char *home = getenv("HOME");
+            const char *xdg = getenv("XDG_STATE_HOME");
+            char socket[1024];
+            if (xdg && *xdg) {
+              snprintf(socket, sizeof(socket), "%s/emacs/server/server", xdg);
+            } else if (home) {
+              snprintf(socket, sizeof(socket), "%s/.local/state/emacs/server/server", home);
+            } else {
+              return 1;
+            }
+            char *args[] = {"emacsclient", "-c", "-s", socket, "-a", "${emacsExe}", NULL};
+            return execv("${emacsClient}", args);
+          }
+          CSRC
+          /usr/bin/cc -arch arm64 -o "$macos_dir/Emacs Client" /tmp/emacs-client-trampoline.c
+          /bin/rm -f /tmp/emacs-client-trampoline.c
+          /usr/bin/codesign --force --sign - "$app_target"
         ''}
 
+        find_app() {
+          for dir in \
+            /Applications \
+            /System/Applications \
+            /System/Applications/Utilities \
+            "$HOME/Applications" \
+            "$HOME/Applications/Home Manager Apps" \
+            "$HOME/Applications/Nix Apps"; do
+            if [ -d "$dir/$1.app" ]; then
+              printf '%s' "$dir/$1.app"
+              return
+            fi
+          done
+        }
+
         add_dock_item() {
-          if [ -n "$1" ] && [ -e "$1" ]; then
-            "$DOCKUTIL" --add "$1" --no-restart "$HOME"
+          app_path="$(find_app "$1")"
+          if [ -n "$app_path" ]; then
+            "$DOCKUTIL" --add "$app_path" --no-restart "$HOME"
           fi
         }
 
+        /usr/bin/defaults write com.apple.dock size-immutable -bool true
+
         "$DOCKUTIL" --remove all --no-restart "$HOME" || true
-        add_dock_item "/System/Applications/Apps.app"
-        ${lib.concatMapStringsSep "\n" (path: ''add_dock_item "${path}"'') selectedDockApps}
-        add_dock_item "/System/Applications/Calendar.app"
-        add_dock_item "/System/Applications/Mail.app"
-        add_dock_item "/System/Applications/Music.app"
-        add_dock_item "/System/Applications/App Store.app"
-        add_dock_item "/System/Applications/System Settings.app"
+        ${lib.concatMapStringsSep "\n" (name: ''add_dock_item "${name}"'') dockItems}
         "$DOCKUTIL" --add "$HOME/Downloads" --view grid --display folder --section others --no-restart "$HOME" || true
         /usr/bin/killall Dock >/dev/null 2>&1 || true
       fi
