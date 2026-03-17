@@ -20,10 +20,10 @@ in
       description = "Optional 1Password reference for a remote OpenClaw hostname resolved at helper runtime.";
     };
 
-    claude.settingsLocal = mkOption {
+    claude.settings = mkOption {
       type = types.attrsOf types.anything;
       default = { };
-      description = "Content for ~/.claude/settings.local.json — user-local overrides merged on top of managed settings.json.";
+      description = "Content for ~/.claude/settings.json — global Claude Code settings.";
     };
   };
 }

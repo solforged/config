@@ -16,7 +16,15 @@ in
   config = lib.mkIf cfg.profiles.development.enable {
     platform.ai.enable = true;
 
-    platform.ai.claude.settingsLocal = {
+    platform.ai.claude.settings = {
+      extraKnownMarketplaces = {
+        claude-plugins-official = {
+          source = {
+            source = "github";
+            repo = "anthropics/claude-plugins-official";
+          };
+        };
+      };
       permissions = {
         allow = [
           # Built-in read-only tools

@@ -42,8 +42,8 @@ let
     };
   };
   selectedDockApps = lib.filter (path: path != null && path != "") [
-    dockPaths.editor.${cfg.apps.editor}
     dockPaths.browser.${cfg.apps.browser}
+    dockPaths.editor.${cfg.apps.editor}
     dockPaths.terminal.${cfg.apps.terminal}
     dockPaths.passwordManager.${cfg.apps.passwordManager}
   ];
@@ -111,11 +111,8 @@ in
         "$DOCKUTIL" --remove all --no-restart "$HOME" || true
         add_dock_item "/System/Applications/Apps.app"
         ${lib.concatMapStringsSep "\n" (path: ''add_dock_item "${path}"'') selectedDockApps}
-        add_dock_item "/Applications/Codex.app"
-        add_dock_item "/System/Applications/Calendar.app"
-        add_dock_item "/System/Applications/Mail.app"
-        add_dock_item "/System/Applications/Music.app"
         add_dock_item "/System/Applications/App Store.app"
+        add_dock_item "/Applications/Claude.app"
         add_dock_item "/System/Applications/System Settings.app"
         "$DOCKUTIL" --add "$HOME/Downloads" --view grid --display folder --section others --no-restart "$HOME" || true
         /usr/bin/killall Dock >/dev/null 2>&1 || true

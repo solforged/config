@@ -53,6 +53,7 @@ Reuse existing abstractions before adding new module options or profiles.
 - Small `let ... in` blocks for readability
 - Format for `nixfmt-rfc-style`
 - Shell scripts in `bin/` and `hooks/`: portable POSIX `sh` unless the file already requires otherwise
+- Don't put "co-authored-by" in commits
 
 ## Commands
 

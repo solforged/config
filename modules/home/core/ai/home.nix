@@ -31,8 +31,8 @@ in
         OPENCLAW_REMOTE_HOSTNAME_OP_REF = aiCfg.openclawRemoteHostnameOpRef;
       };
 
-    home.file.".claude/settings.local.json" = lib.mkIf (aiCfg.claude.settingsLocal != { }) {
-      text = builtins.toJSON aiCfg.claude.settingsLocal;
+    home.file.".claude/settings.json" = lib.mkIf (aiCfg.claude.settings != { }) {
+      text = builtins.toJSON aiCfg.claude.settings;
     };
 
     home.file.".local/bin/codex-here" = {
