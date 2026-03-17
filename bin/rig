@@ -606,12 +606,20 @@ install_op_cli() {
 }
 
 ensure_op_signed_in() {
-  if op account list --format=json 2>/dev/null | grep -q '"url"'; then
+  if op whoami >/dev/null 2>&1; then
     return 0
   fi
 
-  printf '%s\n' "signing into 1Password (interactive)" >&2
-  eval "$(op signin)"
+  if op account list --format=json 2>/dev/null | grep -q '"url"'; then
+    printf '%s\n' "re-authenticating 1Password" >&2
+    op signin
+  else
+    printf '%s\n' "no 1Password accounts configured — adding account (interactive)" >&2
+    op account add
+    op signin
+  fi
+
+  op whoami >/dev/null 2>&1 || die "1Password sign-in failed"
 }
 
 secrets_manifest() {
@@ -839,6 +847,13 @@ do_bootstrap() {
   require_command sudo
   ensure_not_root
   install_op_cli
+
+  # Determinate Nix installer may leave /etc/nix/nix.custom.conf which
+  # nix-darwin refuses to overwrite. Rename it out of the way on first run.
+  if [ -f /etc/nix/nix.custom.conf ]; then
+    printf '%s\n' "moving /etc/nix/nix.custom.conf aside for nix-darwin" >&2
+    sudo mv /etc/nix/nix.custom.conf /etc/nix/nix.custom.conf.before-nix-darwin
+  fi
 
   cd "$repo_root"
   run_activation "$host" "$kind" 0

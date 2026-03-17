@@ -70,13 +70,21 @@ install_op_cli() {
 # ── 1Password sign-in ────────────────────────────────────────────────
 
 ensure_op_signed_in() {
-  if op account list --format=json 2>/dev/null | grep -q '"url"'; then
+  if op whoami >/dev/null 2>&1; then
     info "1Password already signed in"
     return 0
   fi
 
-  info "signing into 1Password (interactive)"
-  eval "$(op signin)"
+  if op account list --format=json 2>/dev/null | grep -q '"url"'; then
+    info "re-authenticating 1Password"
+    op signin
+  else
+    info "no 1Password accounts configured — adding account (interactive)"
+    op account add
+    op signin
+  fi
+
+  op whoami >/dev/null 2>&1 || die "1Password sign-in failed"
 }
 
 # ── Clone config repo ────────────────────────────────────────────────
