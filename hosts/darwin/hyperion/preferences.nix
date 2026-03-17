@@ -19,6 +19,15 @@
     features = {
       homebrew.enable = true;
       dock.enable = true;
+      dock.items = [
+        "Apps"
+        "Brave Browser"
+        "Ghostty"
+        "1Password"
+        "App Store"
+        "Claude"
+        "System Settings"
+      ];
       touchIdSudo.enable = true;
       capsToCtrl.enable = false;
       capsToEscape.enable = true;

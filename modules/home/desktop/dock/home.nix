@@ -17,36 +17,7 @@ let
     in
     lib.findFirst (pkg: pkg != null) pkgs.emacs candidates;
   emacsClient = lib.getExe' emacsPackage "emacsclient";
-  dockPaths = {
-    editor = {
-      emacs = "$HOME/Applications/Emacs Client.app";
-      helix = null;
-      nvim = null;
-    };
-    browser = {
-      brave = "/Applications/Brave Browser.app";
-      chatgpt-atlas = "/Applications/ChatGPT Atlas.app";
-      safari = "/System/Applications/Safari.app";
-      none = null;
-    };
-    terminal = {
-      ghostty = "/Applications/Ghostty.app";
-      kitty = "/Applications/kitty.app";
-      terminal = "/System/Applications/Utilities/Terminal.app";
-    };
-    passwordManager = {
-      "1password" = "/Applications/1Password.app";
-      bitwarden = "/Applications/Bitwarden.app";
-      proton-pass = "/Applications/Proton Pass.app";
-      none = null;
-    };
-  };
-  selectedDockApps = lib.filter (path: path != null && path != "") [
-    dockPaths.browser.${cfg.apps.browser}
-    dockPaths.editor.${cfg.apps.editor}
-    dockPaths.terminal.${cfg.apps.terminal}
-    dockPaths.passwordManager.${cfg.apps.passwordManager}
-  ];
+  dockItems = cfg.features.dock.items;
 in
 {
   config = lib.mkIf (isDarwin && cfg.features.dock.enable && cfg.profiles.desktop.enable) {
@@ -102,18 +73,32 @@ in
           /bin/chmod +x "$macos_dir/Emacs Client"
         ''}
 
+        find_app() {
+          for dir in \
+            /Applications \
+            /System/Applications \
+            /System/Applications/Utilities \
+            "$HOME/Applications" \
+            "$HOME/Applications/Home Manager Apps" \
+            "$HOME/Applications/Nix Apps"; do
+            if [ -d "$dir/$1.app" ]; then
+              printf '%s' "$dir/$1.app"
+              return
+            fi
+          done
+        }
+
         add_dock_item() {
-          if [ -n "$1" ] && [ -e "$1" ]; then
-            "$DOCKUTIL" --add "$1" --no-restart "$HOME"
+          app_path="$(find_app "$1")"
+          if [ -n "$app_path" ]; then
+            "$DOCKUTIL" --add "$app_path" --no-restart "$HOME"
           fi
         }
 
+        /usr/bin/defaults write com.apple.dock size-immutable -bool true
+
         "$DOCKUTIL" --remove all --no-restart "$HOME" || true
-        add_dock_item "/System/Applications/Apps.app"
-        ${lib.concatMapStringsSep "\n" (path: ''add_dock_item "${path}"'') selectedDockApps}
-        add_dock_item "/System/Applications/App Store.app"
-        add_dock_item "/Applications/Claude.app"
-        add_dock_item "/System/Applications/System Settings.app"
+        ${lib.concatMapStringsSep "\n" (name: ''add_dock_item "${name}"'') dockItems}
         "$DOCKUTIL" --add "$HOME/Downloads" --view grid --display folder --section others --no-restart "$HOME" || true
         /usr/bin/killall Dock >/dev/null 2>&1 || true
       fi
