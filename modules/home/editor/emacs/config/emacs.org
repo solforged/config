@@ -6,6 +6,10 @@
 This config is repo-owned, Doom-inspired, and tangled on demand into the XDG
 cache directory. The checked-in Org files remain the source of truth.
 
+#+begin_src emacs-lisp
+;;; init-tangled.el --- Generated from emacs.org -*- lexical-binding: t; -*-
+#+end_src
+
 #+include: "modules/core.org"
 #+include: "modules/ui.org"
 #+include: "modules/editing.org"

@@ -5,7 +5,7 @@
 #+begin_src emacs-lisp
 (use-package vertico
   :init
-  (setq vertico-resize t)
+  (setq vertico-resize 'grow-only)
   (setq vertico-cycle t)
   :config
   (vertico-mode 1))
@@ -29,7 +29,10 @@
   (setq consult-project-function
         (lambda (_)
           (when-let ((project (project-current)))
-            (project-root project)))))
+            (project-root project))))
+  (consult-customize
+   consult-ripgrep consult-grep consult-git-grep
+   :preview-key '(:debounce 0.3 any)))
 
 (use-package embark
   :bind (("C-." . embark-act)
@@ -41,6 +44,13 @@
 (use-package embark-consult
   :after (embark consult)
   :hook (embark-collect-mode . consult-preview-at-point-mode))
+
+(use-package consult-dir
+  :after consult
+  :bind (("C-x C-d" . consult-dir)
+         :map vertico-map
+         ("C-x C-d" . consult-dir)
+         ("C-x C-j" . consult-dir-jump-file)))
 #+end_src
 
 ** In-buffer completion
@@ -74,13 +84,19 @@
   (let ((dir (read-directory-name "Search in directory: ")))
     (consult-ripgrep dir)))
 
+(defun dotfiles/find-file-in-config ()
+  "Find file in the dotfiles config repo."
+  (interactive)
+  (let ((default-directory "~/dev/personal/repos/config/"))
+    (call-interactively #'find-file)))
+
 (with-eval-after-load 'general
   (dotfiles/leader-def
     "b i" '(consult-buffer :which-key "buffer switcher")
+    "f c" '(:ignore t :which-key "config")
+    "f c p" '(dotfiles/find-file-in-config :which-key "personal config")
     "f f" '(find-file :which-key "find file")
-    "f g" '(consult-ripgrep :which-key "ripgrep")
     "f h" '(consult-history :which-key "history")
-    "f l" '(consult-line :which-key "search line")
     "f r" '(consult-recent-file :which-key "recent files")
     "s s" '(consult-line :which-key "search line")
     "s p" '(consult-ripgrep :which-key "ripgrep project")

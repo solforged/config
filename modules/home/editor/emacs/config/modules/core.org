@@ -38,7 +38,7 @@
                 shell-mode-hook
                 term-mode-hook
                 vterm-mode-hook
-                eat-mode-hook
+                vterm-mode-hook
                 org-mode-hook))
   (add-hook mode (lambda () (display-line-numbers-mode 0))))
 
@@ -62,6 +62,11 @@
 
 (make-directory dotfiles/cache-directory t)
 (make-directory dotfiles/state-directory t)
+
+;; Pin the server socket to a stable path so launchd and shell clients agree
+(setq server-socket-dir (expand-file-name "server/" dotfiles/state-directory))
+(make-directory server-socket-dir t)
+(set-file-modes server-socket-dir #o700)
 (make-directory (expand-file-name "backups/" dotfiles/state-directory) t)
 (make-directory (expand-file-name "auto-save/" dotfiles/state-directory) t)
 (make-directory (expand-file-name "eln/" dotfiles/cache-directory) t)
@@ -74,7 +79,14 @@
 (setq history-length 200)
 (setq recentf-max-saved-items 200)
 (setq recentf-save-file (expand-file-name "recentf/recentf" dotfiles/state-directory))
+(setq recentf-exclude '("\\.git/" "/tmp/" "/ssh:" "\\.elc$"
+                         "COMMIT_EDITMSG" "MERGE_MSG"
+                         "bookmarks" "recentf"))
 (setq savehist-file (expand-file-name "savehist/history" dotfiles/state-directory))
+
+;; Disambiguate buffers with the same name using path segments
+(setq uniquify-buffer-name-style 'forward)
+(setq uniquify-after-kill-buffer-p t)
 
 (when (fboundp 'startup-redirect-eln-cache)
   (startup-redirect-eln-cache (expand-file-name "eln/" dotfiles/cache-directory)))
@@ -170,9 +182,12 @@
   (repeat-mode 1)
   (show-paren-mode 1)
   (setq auto-revert-verbose nil)
-  )
+  (add-to-list 'completion-ignored-extensions ".DS_Store"))
 
 (use-package gcmh
   :config
+  (setq gcmh-idle-delay 'auto)
+  (setq gcmh-auto-idle-delay-factor 10)
+  (setq gcmh-high-cons-threshold (* 128 1024 1024))
   (gcmh-mode 1))
 #+end_src

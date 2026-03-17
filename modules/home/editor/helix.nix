@@ -13,7 +13,7 @@ in
       defaultEditor = cfg.apps.editor == "helix";
 
       settings = {
-        theme = "tokyonight_storm";
+        theme = "doomone";
         editor = {
           line-number = "relative";
           auto-format = true;
@@ -65,14 +65,20 @@ in
             name = "javascript";
             formatter = {
               command = "prettier";
-              args = [ "--parser" "babel" ];
+              args = [
+                "--parser"
+                "babel"
+              ];
             };
           }
           {
             name = "typescript";
             formatter = {
               command = "prettier";
-              args = [ "--parser" "typescript" ];
+              args = [
+                "--parser"
+                "typescript"
+              ];
             };
           }
         ];

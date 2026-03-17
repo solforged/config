@@ -32,21 +32,18 @@ let
     (provide 'platform-host-facts)
     ;;; host-facts.el ends here
   '';
-  # Eat terminal emulator sets TERM=eat-truecolor but its terminfo entries
-  # only live inside the elpaca package directory. Compile them into the
-  # user profile so nix-darwin's set-environment (which sets TERMINFO_DIRS
-  # to include per-user profile paths) can resolve them.
-  eatTerminfo = pkgs.runCommand "eat-terminfo" { nativeBuildInputs = [ pkgs.ncurses ]; } ''
-    mkdir -p $out/share/terminfo
-    tic -o $out/share/terminfo ${./config/eat.ti}
-  '';
 in
 {
   config = lib.mkIf (builtins.elem "emacs" cfg.apps.enabledEditors) {
-    # Install eat terminfo entries into the user profile so that
-    # nix-darwin's set-environment (which sets TERMINFO_DIRS to include
-    # the per-user profile) can resolve TERM=eat-truecolor.
-    home.packages = [ eatTerminfo ];
+    # cmake and libtool (as glibtool) are needed to compile vterm's native module
+    home.packages = [
+      pkgs.cmake
+      (pkgs.runCommand "glibtool-alias" { } ''
+        mkdir -p $out/bin
+        ln -s ${pkgs.libtool}/bin/libtool $out/bin/glibtool
+        ln -s ${pkgs.libtool}/bin/libtoolize $out/bin/glibtoolize
+      '')
+    ];
 
     programs.emacs = {
       enable = true;
@@ -56,11 +53,7 @@ in
     services.emacs = {
       enable = true;
       client.enable = true;
-      client.arguments = [
-        "-c"
-        "-a"
-        "emacs"
-      ];
+      client.arguments = [ "-c" ];
     }
     // lib.optionalAttrs pkgs.stdenv.isLinux {
       startWithUserSession = "graphical";
@@ -69,8 +62,13 @@ in
     xdg.configFile."emacs/early-init.el".source = ./config/early-init.el;
     xdg.configFile."emacs/init.el".source = ./config/init.el;
     xdg.configFile."emacs/emacs.org".source = ./config/emacs.org;
+    xdg.configFile."emacs/banner.png".source = ./config/banner.png;
     xdg.configFile."emacs/modules" = {
       source = ./config/modules;
+      recursive = true;
+    };
+    xdg.configFile."emacs/themes" = {
+      source = ./config/themes;
       recursive = true;
     };
     xdg.configFile."emacs/host-facts.el".text = hostFacts;
