@@ -45,6 +45,20 @@
   (evil-snipe-mode 1)
   (evil-snipe-override-mode 1))
 
+(use-package evil-surround
+  :after evil
+  :config
+  (global-evil-surround-mode 1))
+
+(use-package evil-nerd-commenter
+  :after evil
+  :commands (evilnc-comment-or-uncomment-lines)
+  :init
+  (general-define-key
+   :states '(normal visual)
+   "gc" #'evilnc-comment-or-uncomment-lines
+   "gC" #'evilnc-comment-or-uncomment-paragraphs))
+
 (use-package general
   :ensure (:build (:not elpaca-build-compile))
   :after evil
@@ -72,12 +86,22 @@
     "w" '(:ignore t :which-key "window")
     "x" '(:ignore t :which-key "diagnostics")))
 
+;; ESC quits prompts and minibuffers (Doom-style)
+(global-set-key [escape] #'keyboard-escape-quit)
+(define-key minibuffer-local-map [escape] #'abort-minibuffers)
+
 (use-package which-key
   :init
   (setq which-key-idle-delay 0.35)
   (setq which-key-sort-order #'which-key-prefix-then-key-order)
   :config
   (which-key-mode 1))
+
+(use-package winum
+  :init
+  (setq winum-auto-setup-mode-line nil)
+  :config
+  (winum-mode 1))
 #+end_src
 
 ** Motions and editing helpers
@@ -87,6 +111,22 @@
   "Switch to the most recently visited buffer."
   (interactive)
   (switch-to-buffer (other-buffer (current-buffer) 1)))
+
+(defun dotfiles/file-minibuffer-tilde ()
+  "Reset the minibuffer path to ~/ when tilde is typed after a slash."
+  (interactive)
+  (if (and (eq (char-before) ?/)
+           (minibufferp))
+      (let ((end (point))
+            (beg (minibuffer-prompt-end)))
+        (delete-region beg end)
+        (insert "~/"))
+    (insert "~")))
+
+(add-hook 'minibuffer-setup-hook
+          (lambda ()
+            (when (eq this-command #'find-file)
+              (local-set-key "~" #'dotfiles/file-minibuffer-tilde))))
 
 (use-package avy
   :commands (avy-goto-char-timer avy-goto-word-1))
@@ -142,12 +182,22 @@
     "w k" '(windmove-up :which-key "window up")
     "w l" '(windmove-right :which-key "window right")
     "w =" '(balance-windows :which-key "balance windows")
-    "w m" '(delete-other-windows :which-key "maximize"))
+    "w m" '(delete-other-windows :which-key "maximize")
+    "1" '(winum-select-window-1 :which-key "window 1")
+    "2" '(winum-select-window-2 :which-key "window 2")
+    "3" '(winum-select-window-3 :which-key "window 3")
+    "4" '(winum-select-window-4 :which-key "window 4")
+    "5" '(winum-select-window-5 :which-key "window 5")
+    "6" '(winum-select-window-6 :which-key "window 6")
+    "7" '(winum-select-window-7 :which-key "window 7")
+    "8" '(winum-select-window-8 :which-key "window 8")
+    "9" '(winum-select-window-9 :which-key "window 9"))
   (dotfiles/leader-def
-    "h f" '(describe-function :which-key "describe function")
-    "h v" '(describe-variable :which-key "describe variable")
-    "h k" '(describe-key :which-key "describe key")
+    "h f" '(helpful-callable :which-key "describe function")
+    "h v" '(helpful-variable :which-key "describe variable")
+    "h k" '(helpful-key :which-key "describe key")
     "h m" '(describe-mode :which-key "describe mode")
+    "h p" '(helpful-at-point :which-key "help at point")
     "h i" '(info :which-key "info")
     "h t" '(consult-theme :which-key "theme"))
   (general-define-key

@@ -17,6 +17,7 @@ let
     in
     lib.findFirst (pkg: pkg != null) pkgs.emacs candidates;
   emacsClient = lib.getExe' emacsPackage "emacsclient";
+  emacsExe = lib.getExe emacsPackage;
   dockItems = cfg.features.dock.items;
 in
 {
@@ -25,7 +26,7 @@ in
       DOCKUTIL="${lib.getExe pkgs.dockutil}"
 
       if [ -n "$DOCKUTIL" ] && [ -e "$HOME/Library/Preferences/com.apple.dock.plist" ]; then
-        ${lib.optionalString (cfg.apps.editor == "emacs") ''
+        ${lib.optionalString (builtins.elem "emacs" cfg.apps.enabledEditors) ''
           app_target="$HOME/Applications/Emacs Client.app"
           contents_dir="$app_target/Contents"
           macos_dir="$contents_dir/MacOS"
@@ -58,6 +59,10 @@ in
               <string>1.0</string>
               <key>CFBundleVersion</key>
               <string>1</string>
+              <key>LSRequiresNativeExecution</key>
+              <true/>
+              <key>LSUIElement</key>
+              <true/>
             </dict>
           </plist>
           EOF
@@ -65,12 +70,18 @@ in
           /bin/cp "${emacsPackage}/Applications/Emacs.app/Contents/Resources/Emacs.icns" \
             "$resources_dir/Emacs.icns"
 
-          cat > "$macos_dir/Emacs Client" <<EOF
-          #!${pkgs.runtimeShell}
-          exec ${emacsClient} -c -a emacs "\$@"
-          EOF
-
-          /bin/chmod +x "$macos_dir/Emacs Client"
+          # Use a compiled trampoline so macOS sees a native arm64 Mach-O
+          # and never prompts for Rosetta.
+          cat > /tmp/emacs-client-trampoline.c <<CSRC
+          #include <unistd.h>
+          int main(int argc, char *argv[]) {
+            char *args[] = {"emacsclient", "-c", "-a", "${emacsExe}", NULL};
+            return execv("${emacsClient}", args);
+          }
+          CSRC
+          /usr/bin/cc -arch arm64 -o "$macos_dir/Emacs Client" /tmp/emacs-client-trampoline.c
+          /bin/rm -f /tmp/emacs-client-trampoline.c
+          /usr/bin/codesign --force --sign - "$app_target"
         ''}
 
         find_app() {

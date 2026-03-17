@@ -459,6 +459,14 @@
   (org-roam-db-autosync-mode 1)
   (dotfiles/org-roam-refresh-agenda-files))
 
+(use-package org-roam-ui
+  :after org-roam
+  :init
+  (setq org-roam-ui-sync-theme t)
+  (setq org-roam-ui-follow t)
+  (setq org-roam-ui-update-on-save t)
+  (setq org-roam-ui-open-on-start nil))
+
 (with-eval-after-load 'general
   (dotfiles/leader-def
     "e e" '(dotfiles-emacs-open-config :which-key "open config")
@@ -476,5 +484,6 @@
     "n n" '(dotfiles/org-roam-capture-note :which-key "capture note")
     "n p" '(dotfiles/org-roam-capture-project :which-key "capture project")
     "n s" '(dotfiles/org-roam-capture-secret :which-key "capture secret")
-    "n t" '(dotfiles/org-roam-capture-topic :which-key "capture topic")))
+    "n t" '(dotfiles/org-roam-capture-topic :which-key "capture topic")
+    "n u" '(org-roam-ui-mode :which-key "roam graph UI")))
 #+end_src

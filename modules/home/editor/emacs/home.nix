@@ -69,6 +69,7 @@ in
     xdg.configFile."emacs/early-init.el".source = ./config/early-init.el;
     xdg.configFile."emacs/init.el".source = ./config/init.el;
     xdg.configFile."emacs/emacs.org".source = ./config/emacs.org;
+    xdg.configFile."emacs/banner.txt".source = ./config/banner.txt;
     xdg.configFile."emacs/modules" = {
       source = ./config/modules;
       recursive = true;

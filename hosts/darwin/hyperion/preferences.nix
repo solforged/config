@@ -11,6 +11,10 @@
     apps = {
       shell = "zsh";
       editor = "helix";
+      enabledEditors = [
+        "helix"
+        "emacs"
+      ];
       terminal = "ghostty";
       browser = "brave";
       passwordManager = "1password";
@@ -23,6 +27,7 @@
         "Apps"
         "Brave Browser"
         "Ghostty"
+        "Emacs Client"
         "1Password"
         "App Store"
         "Claude"

@@ -14,6 +14,15 @@
   (doom-themes-visual-bell-config)
   (doom-themes-org-config))
 
+;; Auto-switch light/dark theme with macOS appearance (requires system-appearance patch)
+(when (boundp 'ns-system-appearance)
+  (defun dotfiles/apply-system-appearance (appearance)
+    "Load a Doom theme matching the macOS APPEARANCE."
+    (pcase appearance
+      ('light (load-theme 'doom-one-light t))
+      ('dark (load-theme 'doom-one t))))
+  (add-hook 'ns-system-appearance-change-functions #'dotfiles/apply-system-appearance))
+
 (use-package solaire-mode
   :config
   (solaire-global-mode 1))
@@ -34,9 +43,10 @@
   :init
   (setq dashboard-startup-banner (expand-file-name "banner.txt" user-emacs-directory))
   (setq dashboard-banner-logo-title "Welcome to Emacs!")
-  (setq dashboard-display-icons-p nil)
-  (setq dashboard-set-heading-icons nil)
-  (setq dashboard-set-file-icons nil)
+  (setq dashboard-display-icons-p t)
+  (setq dashboard-set-heading-icons t)
+  (setq dashboard-set-file-icons t)
+  (setq dashboard-icon-type 'nerd-icons)
   (setq dashboard-show-shortcuts nil)
   (setq dashboard-footer-messages '("Welcome to the church of Emacs"))
   (setq dashboard-projects-backend 'project-el)
@@ -74,9 +84,73 @@
                                 (abbreviate-file-name (buffer-file-name))
                               "%b")))))
 
+;; Match titlebar to theme on macOS
+(when (eq system-type 'darwin)
+  (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
+  (add-to-list 'default-frame-alist '(ns-appearance . dark)))
+
 (use-package exec-path-from-shell
   :if (or (daemonp) (display-graphic-p))
   :config
   (setq exec-path-from-shell-arguments '("-l"))
   (exec-path-from-shell-initialize))
+
+(use-package hl-todo
+  :hook ((prog-mode . hl-todo-mode)
+         (conf-mode . hl-todo-mode))
+  :config
+  (setq hl-todo-keyword-faces
+        '(("TODO"  . "#FF8C00")
+          ("FIXME" . "#FF4500")
+          ("HACK"  . "#FF1493")
+          ("NOTE"  . "#1E90FF")
+          ("DEPRECATED" . "#808080")
+          ("REVIEW" . "#9370DB")
+          ("BUG"   . "#FF0000"))))
+#+end_src
+
+** Helpful
+
+Replace built-in help buffers with richer, more contextual documentation that
+includes source links, keybinding cross-references, and editable values.
+
+#+begin_src emacs-lisp
+(use-package helpful
+  :commands (helpful-callable helpful-variable helpful-key helpful-at-point)
+  :bind
+  ([remap describe-function] . helpful-callable)
+  ([remap describe-variable] . helpful-variable)
+  ([remap describe-key] . helpful-key)
+  ([remap describe-command] . helpful-command))
+#+end_src
+
+** Window rules
+
+Tame popup buffers so help, compilation, and diagnostics windows don't steal
+your layout. Popper classifies ephemeral buffers and gives them consistent
+placement.
+
+#+begin_src emacs-lisp
+(use-package popper
+  :ensure (:host github :repo "karthink/popper")
+  :bind (("C-`" . popper-toggle)
+         ("M-`" . popper-cycle)
+         ("C-M-`" . popper-toggle-type))
+  :init
+  (setq popper-reference-buffers
+        '("\\*Messages\\*"
+          "\\*Warnings\\*"
+          "Output\\*$"
+          "\\*Async Shell Command\\*"
+          "\\*Compile-Log\\*"
+          "\\*Backtrace\\*"
+          help-mode
+          helpful-mode
+          compilation-mode
+          flymake-diagnostics-buffer-mode
+          eat-mode))
+  (setq popper-window-height 0.33)
+  :config
+  (popper-mode 1)
+  (popper-echo-mode 1))
 #+end_src

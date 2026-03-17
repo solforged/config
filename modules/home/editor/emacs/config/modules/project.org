@@ -49,6 +49,13 @@
 (use-package eat
   :commands (eat eat-project eat-other-window))
 
+(use-package activities
+  :init
+  (setq activities-bookmark-store nil)
+  :config
+  (activities-mode 1)
+  (activities-tabs-mode 1))
+
 (use-package restart-emacs
   :commands restart-emacs)
 
@@ -89,12 +96,28 @@
 (with-eval-after-load 'general
   (dotfiles/leader-def
     "g g" '(magit-status :which-key "magit status")
+    "g b" '(magit-blame-addition :which-key "blame")
+    "g l" '(magit-log-buffer-file :which-key "log file")
+    "g d" '(magit-diff-dwim :which-key "diff")
+    "g s" '(magit-stage-buffer-file :which-key "stage file")
+    "g S" '(magit-unstage-buffer-file :which-key "unstage file")
     "g p" '(magit-project-status :which-key "magit project")
+    "g r" '(diff-hl-revert-hunk :which-key "revert hunk")
     "p b" '(consult-project-buffer :which-key "project buffers")
+    "p c" '(project-compile :which-key "compile")
     "p d" '(project-dired :which-key "project dired")
+    "p e" '(project-eshell :which-key "eshell")
     "p f" '(project-find-file :which-key "project file")
+    "p k" '(project-kill-buffers :which-key "kill project buffers")
     "p p" '(project-switch-project :which-key "switch project")
     "p r" '(consult-ripgrep :which-key "project ripgrep")
+    "p s" '(project-shell :which-key "shell")
+    "p x" '(project-async-shell-command :which-key "async command")
+    "t a" '(activities-resume :which-key "resume activity")
+    "t A" '(activities-new :which-key "new activity")
+    "t k" '(activities-kill :which-key "kill activity")
+    "t l" '(activities-list :which-key "list activities")
+    "t s" '(activities-suspend :which-key "suspend activity")
     "t t" '(dotfiles/open-terminal-here :which-key "eat terminal")
     "o t" '(dotfiles/open-terminal-here :which-key "terminal")
     "o d" '(project-dired :which-key "dired")

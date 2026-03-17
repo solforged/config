@@ -174,5 +174,8 @@
 
 (use-package gcmh
   :config
+  (setq gcmh-idle-delay 'auto)
+  (setq gcmh-auto-idle-delay-factor 10)
+  (setq gcmh-high-cons-threshold (* 128 1024 1024))
   (gcmh-mode 1))
 #+end_src
