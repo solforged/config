@@ -102,6 +102,7 @@ in
     };
 
     platform.packages.home = with pkgs; [
+      inputs.claude-code-nix.packages.${cfg.host.platform}.claude-code-bun
       codex
       cargo
       clippy

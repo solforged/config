@@ -83,6 +83,7 @@ in
       };
 
       shellAliases = {
+        claude = "claude-bun";
         cdd = ''cd "$DOTFILES_DIR"'';
         e = "$EDITOR";
         g = "git";

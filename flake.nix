@@ -15,6 +15,7 @@
     nix-openclaw.url = "github:openclaw/nix-openclaw";
     nix-openclaw.inputs.nixpkgs.follows = "nixpkgs";
     nix-openclaw.inputs.home-manager.follows = "home-manager";
+    claude-code-nix.url = "github:sadjow/claude-code-nix";
     workmux.url = "github:raine/workmux";
     workmux.inputs.nixpkgs.follows = "nixpkgs";
   };
