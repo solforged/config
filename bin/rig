@@ -583,6 +583,24 @@ require_op() {
   require_command op
 }
 
+install_homebrew() {
+  if command -v brew >/dev/null 2>&1; then
+    return 0
+  fi
+
+  printf '%s\n' "installing Homebrew" >&2
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+  # Homebrew on Apple Silicon installs to /opt/homebrew
+  if [ -x /opt/homebrew/bin/brew ]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+  elif [ -x /usr/local/bin/brew ]; then
+    eval "$(/usr/local/bin/brew shellenv)"
+  fi
+
+  command -v brew >/dev/null 2>&1 || die "failed to install Homebrew"
+}
+
 install_op_cli() {
   if command -v op >/dev/null 2>&1; then
     return 0
@@ -847,6 +865,9 @@ do_bootstrap() {
   require_command sudo
   ensure_not_root
   install_op_cli
+  if ! host_has_profile "$host" work; then
+    install_homebrew
+  fi
 
   # Determinate Nix installer may leave /etc/nix/nix.custom.conf which
   # nix-darwin refuses to overwrite. Rename it out of the way on first run.
