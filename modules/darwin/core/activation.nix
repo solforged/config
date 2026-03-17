@@ -38,6 +38,8 @@ in
 
   config = lib.mkIf isDarwin {
     system.activationScripts.postActivation.text = lib.mkAfter ''
+      /usr/bin/chflags nohidden "$HOME/Library" 2>/dev/null || true
+
       ${lib.optionalString (cfg.power.settings != { }) ''
         /usr/bin/pmset -a ${pmsetArgs}
       ''}
