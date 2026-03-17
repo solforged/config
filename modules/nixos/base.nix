@@ -27,6 +27,19 @@ in
       use-xdg-base-directories = true;
     };
 
+    networking = {
+      hostName = cfg.host.slug;
+      firewall.enable = true;
+      useDHCP = lib.mkDefault true;
+    };
+
+    boot.loader = {
+      systemd-boot.enable = lib.mkDefault true;
+      efi.canTouchEfiVariables = lib.mkDefault true;
+    };
+
+    services.qemuGuest.enable = lib.mkDefault true;
+
     users.users.${cfg.user.name} = {
       isNormalUser = true;
       description = cfg.user.fullName;

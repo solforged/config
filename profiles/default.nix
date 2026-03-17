@@ -5,6 +5,7 @@
     ./development
     ./media
     ./personal
+    ./server
     ./work
   ];
 }

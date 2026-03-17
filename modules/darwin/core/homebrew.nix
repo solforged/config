@@ -36,38 +36,7 @@ let
   ];
 in
 {
-  options.platform = {
-    features.homebrew.enable = mkEnableOption "manage Homebrew through nix-darwin";
-
-    homebrew = {
-      taps = mkOption {
-        type = types.listOf types.str;
-        default = [ ];
-        description = "Merged Homebrew taps from profiles.";
-      };
-
-      brews = mkOption {
-        type = types.listOf types.str;
-        default = [ ];
-        description = "Merged Homebrew brews from profiles.";
-      };
-
-      casks = mkOption {
-        type = types.listOf types.str;
-        default = [ ];
-        description = "Merged Homebrew casks from profiles.";
-      };
-
-      masApps = mkOption {
-        type = types.attrsOf types.int;
-        default = { };
-        example = {
-          Amphetamine = 937984704;
-        };
-        description = "Merged Mac App Store applications for nix-darwin Homebrew management.";
-      };
-    };
-  };
+  options.platform.features.homebrew.enable = mkEnableOption "manage Homebrew through nix-darwin";
 
   config = lib.mkIf (isDarwin && cfg.features.homebrew.enable) {
     homebrew = {

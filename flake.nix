@@ -34,6 +34,7 @@
       nixosConfigurations = builtins.mapAttrs (
         _: host: platformLib.mkNixosHost { inherit host; }
       ) nixosHosts;
+      vmConfigurations = builtins.mapAttrs (_: host: platformLib.mkNixosVm { inherit host; }) nixosHosts;
     in
     {
       lib = platformLib;
@@ -41,7 +42,12 @@
       overlays.default = import ./overlays;
 
       packages = platformLib.forAllSystems (
-        system: import ./pkgs { pkgs = nixpkgs.legacyPackages.${system}; }
+        system:
+        let
+          base = import ./pkgs { pkgs = nixpkgs.legacyPackages.${system}; };
+          vmPkgs = nixpkgs.lib.filterAttrs (_: host: host.system == system) nixosHosts;
+        in
+        base // builtins.mapAttrs (name: _: vmConfigurations.${name}.config.system.build.vm) vmPkgs
       );
 
       inherit darwinConfigurations nixosConfigurations;

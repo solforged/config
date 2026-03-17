@@ -4,13 +4,43 @@ let
   localIdentityModule = ../modules/local/identity.nix;
   supportedSystems = [
     "aarch64-darwin"
+    "aarch64-linux"
     "x86_64-linux"
   ];
   sharedModules = [ ../modules/shared ];
   profileModules = [ ../profiles ];
+
+  mkNixosHost =
+    {
+      host,
+      extraModules ? [ ],
+      extraSpecialArgs ? { },
+    }:
+    inputs.nixpkgs.lib.nixosSystem {
+      system = host.system;
+      specialArgs = {
+        inherit inputs self;
+      }
+      // extraSpecialArgs;
+      modules =
+        sharedModules
+        ++ profileModules
+        ++ nixpkgsLib.optionals (builtins.pathExists localIdentityModule) [
+          localIdentityModule
+        ]
+        ++ [
+          inputs.home-manager.nixosModules.home-manager
+          ../modules/nixos
+          ../modules/home
+        ]
+        ++ extraModules
+        ++ [
+          host.module
+        ];
+    };
 in
 {
-  inherit supportedSystems;
+  inherit supportedSystems mkNixosHost;
 
   forAllSystems =
     f:
@@ -69,33 +99,36 @@ in
         ];
     };
 
-  mkNixosHost =
+  mkNixosVm =
     {
       host,
       extraModules ? [ ],
       extraSpecialArgs ? { },
     }:
-    inputs.nixpkgs.lib.nixosSystem {
-      system = host.system;
-      specialArgs = {
-        inherit inputs self;
-      }
-      // extraSpecialArgs;
-      modules =
-        sharedModules
-        ++ profileModules
-        ++ nixpkgsLib.optionals (builtins.pathExists localIdentityModule) [
-          localIdentityModule
-        ]
-        ++ [
-          inputs.home-manager.nixosModules.home-manager
-          ../modules/nixos
-          ../modules/home
-        ]
-        ++ extraModules
-        ++ [
-          host.module
-        ];
+    mkNixosHost {
+      inherit host extraSpecialArgs;
+      extraModules = extraModules ++ [
+        (
+          { modulesPath, ... }:
+          {
+            imports = [ "${modulesPath}/profiles/qemu-guest.nix" ];
+            virtualisation.vmVariant = {
+              virtualisation = {
+                memorySize = 2048;
+                cores = 2;
+                graphics = false;
+                forwardPorts = [
+                  {
+                    from = "host";
+                    host.port = 2222;
+                    guest.port = 22;
+                  }
+                ];
+              };
+            };
+          }
+        )
+      ];
     };
 
   mkChecks =
