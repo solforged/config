@@ -10,23 +10,30 @@
 
     apps = {
       shell = "zsh";
-      editor = "helix";
-      enabledEditors = [ "helix" ];
+      editor = "nvim";
+      enabledEditors = [
+        "nvim"
+        "helix"
+      ];
       terminal = "ghostty";
-      browser = "brave";
-      passwordManager = "proton-pass";
+      browser = "chatgpt-atlas";
+      passwordManager = "1password";
     };
 
     features = {
       homebrew.enable = true;
       dock.enable = true;
+      dock.items = [
+        "Apps"
+        "ChatGPT Atlas"
+        "Ghostty"
+        "1Password"
+        "App Store"
+        "Claude"
+        "System Settings"
+      ];
       touchIdSudo.enable = true;
-      capsToCtrl.enable = true;
-    };
-
-    openclaw = {
-      tailscaleMagicDnsName = "sigil.ussuri-alphard.ts.net";
-      telegramOwnerId = 7703164198;
+      capsToEscape.enable = true;
     };
 
     music = {
@@ -36,6 +43,6 @@
       openclaw.enable = true;
     };
 
-    ai.openclawRemoteUrl = "https://sigil.ussuri-alphard.ts.net";
+    ai.openclawRemoteHostnameOpRef = "op://Private/OpenClaw Gateway Token/hostname";
   };
 }

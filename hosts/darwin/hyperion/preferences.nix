@@ -4,15 +4,16 @@
       base.enable = true;
       desktop.enable = true;
       development.enable = true;
-      work.enable = true;
+      personal.enable = true;
     };
 
     apps = {
       shell = "zsh";
-      editor = "nvim";
+      editor = "emacs";
       enabledEditors = [
         "nvim"
         "helix"
+        "emacs"
       ];
       terminal = "ghostty";
       browser = "brave";
@@ -21,9 +22,21 @@
 
     features = {
       homebrew.enable = true;
-      dock.enable = false;
+      dock.enable = true;
+      dock.items = [
+        "Apps"
+        "Brave Browser"
+        "Ghostty"
+        "Emacs Client"
+        "Signal"
+        "1Password"
+        "App Store"
+        "Claude"
+        "System Settings"
+      ];
       touchIdSudo.enable = true;
       capsToCtrl.enable = false;
+      capsToEscape.enable = true;
     };
   };
 }

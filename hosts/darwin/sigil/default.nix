@@ -2,17 +2,22 @@
   system = "aarch64-darwin";
 
   module =
-    { inputs, pkgs, ... }:
+    {
+      inputs,
+      pkgs,
+      self,
+      ...
+    }:
     {
       imports = [
         ./preferences.nix
         ./packages.nix
         ./power.nix
-        ./services/options.nix
       ];
 
       nixpkgs.overlays = [
         inputs.nix-openclaw.overlays.default
+        self.overlays.default
       ];
 
       services.openssh.enable = true;
