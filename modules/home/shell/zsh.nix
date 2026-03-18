@@ -71,42 +71,48 @@ in
       ];
 
       sessionVariables = {
-        PLATFORM_DIR = "${config.xdg.dataHome}/platform";
+        PLATFORM_DIR = "$HOME/dev/personal/repos/config";
       };
 
       dirHashes = {
         cache = config.xdg.cacheHome;
         cfg = config.xdg.configHome;
         data = config.xdg.dataHome;
-        pf = "${config.xdg.dataHome}/platform";
+        cfp = "$HOME/dev/personal/repos/config";
         state = config.xdg.stateHome;
       };
 
-      shellAliases = {
-        cdd = ''cd "$DOTFILES_DIR"'';
-        e = "$EDITOR";
-        g = "git";
-        ga = "git add";
-        gb = "git branch";
-        gc = "git commit";
-        gcfg = "git config";
-        gg = "lazygit";
-        gl = "git log --oneline --decorate --graph";
-        gp = "git push";
-        gs = "git status -sb";
-        lg = "lazygit";
-        md = "mkdir -p";
-        oc = "openclaw";
-        rb = "rig build";
-        rc = "rig check";
-        rd = "rig deploy";
-        rdu = "rig deploy --update";
-        rf = "rig fmt";
-        rse = "rig secrets edit";
-        rsi = "rig secrets import";
-        rsk = "rig secrets rekey";
-        tldr = "tldr --config-path ${config.xdg.configHome}/tldr/config.toml";
-      };
+      shellAliases =
+        {
+          e = "$EDITOR";
+          g = "git";
+          ga = "git add";
+          gb = "git branch";
+          gc = "git commit";
+          gcfg = "git config";
+          gg = "lazygit";
+          gl = "git log --oneline --decorate --graph";
+          gp = "git push";
+          gs = "git status -sb";
+          lg = "lazygit";
+          md = "mkdir -p";
+          nk = "nvim-help";
+          oc = "openclaw";
+          rb = "rig build";
+          rc = "rig check";
+          rd = "rig deploy";
+          rdu = "rig deploy --update";
+          rf = "rig fmt";
+          rsp = "rig secrets pull";
+          rss = "rig secrets scan";
+          zj = "zellij";
+          zja = "zellij attach -c";
+          zjl = "zellij list-sessions";
+          zp = "project-session";
+        }
+        // lib.optionalAttrs cfg.profiles.work.enable {
+          zw = "work-session";
+        };
 
       zsh-abbr = {
         enable = true;
@@ -120,7 +126,6 @@ in
           bu = "brew uninstall --zap";
           bz = "brew uninstall --zap";
           cache = "~cache";
-          cdd = "cd $DOTFILES_DIR";
           cfg = "~cfg";
           ci = "brew install --cask";
           data = "~data";
@@ -179,6 +184,67 @@ in
           if (( $+commands[eza] )); then
             compdef _eza ls l ll la lla ltr llm lx lS lt
           fi
+        '')
+
+        (lib.mkOrder 1200 (lib.optionalString cfg.profiles.development.enable ''
+          if (( $+commands[wt] )); then
+            typeset wt_shell_init
+            wt_shell_init="$(
+              wt config shell init zsh 2>/dev/null || wt config shell init 2>/dev/null
+            )"
+
+            if [[ -n "$wt_shell_init" ]]; then
+              eval "$wt_shell_init"
+            fi
+          fi
+        ''))
+
+        (lib.mkOrder 1300 ''
+          project-session() {
+            local root session
+
+            if root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+              :
+            else
+              root="$PWD"
+            fi
+
+            session="$(basename "$root" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '-')"
+            session="''${session#-}"
+            session="''${session%-}"
+
+            if [[ -z "$session" ]]; then
+              session="shell"
+            fi
+
+            cd "$root" || return
+            exec zellij attach -c "$session"
+          }
+
+          ${lib.optionalString cfg.profiles.work.enable ''
+            work-session() {
+              local session="work"
+
+              if zellij list-sessions --short 2>/dev/null | grep -Fxq "$session"; then
+                exec zellij attach "$session"
+              else
+                exec zellij --session "$session" --layout work
+              fi
+            }
+          ''}
+
+          ghostty-keys() {
+            if ! (( $+commands[ghostty] )); then
+              print -u2 "ghostty is not installed"
+              return 1
+            fi
+
+            ghostty +list-keybinds --default | ${pkgs.less}/bin/less
+          }
+
+          nvim-help() {
+            exec nvim '+Telescope keymaps'
+          }
         '')
 
         (lib.mkOrder 1400 ''
