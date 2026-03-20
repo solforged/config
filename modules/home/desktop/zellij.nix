@@ -208,6 +208,7 @@ in
                 bind "e" { TogglePaneEmbedOrFloating; SwitchToMode "locked"; }
                 bind "i" { TogglePanePinned; SwitchToMode "locked"; }
                 bind "r" { SwitchToMode "RenamePane"; PaneNameInput 0; }
+                bind "t" { BreakPane; SwitchToMode "locked"; }
             }
 
             tab {
@@ -218,6 +219,8 @@ in
                 bind "x" { CloseTab; SwitchToMode "locked"; }
                 bind "r" { SwitchToMode "RenameTab"; TabNameInput 0; }
                 bind "s" { ToggleActiveSyncTab; SwitchToMode "locked"; }
+                bind "H" { MoveTab "Left"; }
+                bind "L" { MoveTab "Right"; }
                 bind "1" { GoToTab 1; SwitchToMode "locked"; }
                 bind "2" { GoToTab 2; SwitchToMode "locked"; }
                 bind "3" { GoToTab 3; SwitchToMode "locked"; }

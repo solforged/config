@@ -1,0 +1,5 @@
+[pre-commit]
+fmt = "nix fmt -- --check ."
+
+[pre-merge]
+check = "nix flake check"
