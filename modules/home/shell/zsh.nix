@@ -7,7 +7,8 @@
 }:
 let
   cfg = osConfig.platform;
-  secretLocalZsh = "${config.xdg.stateHome}/platform/secrets/zsh/local.zsh";
+  repoRoot = cfg.local.repoRoot;
+  secretLocalZsh = "${cfg.secrets.stateDir}/zsh/local.zsh";
   localZsh = cfg.local.zshLocal;
 in
 {
@@ -71,48 +72,49 @@ in
       ];
 
       sessionVariables = {
-        PLATFORM_DIR = "$HOME/dev/personal/repos/config";
+        PLATFORM_DIR = repoRoot;
+        RIG_REPO_ROOT = repoRoot;
       };
 
       dirHashes = {
         cache = config.xdg.cacheHome;
         cfg = config.xdg.configHome;
         data = config.xdg.dataHome;
-        cfp = "$HOME/dev/personal/repos/config";
+        cfp = repoRoot;
         state = config.xdg.stateHome;
       };
 
-      shellAliases =
-        {
-          e = "$EDITOR";
-          g = "git";
-          ga = "git add";
-          gb = "git branch";
-          gc = "git commit";
-          gcfg = "git config";
-          gg = "lazygit";
-          gl = "git log --oneline --decorate --graph";
-          gp = "git push";
-          gs = "git status -sb";
-          lg = "lazygit";
-          md = "mkdir -p";
-          nk = "nvim-help";
-          oc = "openclaw";
-          rb = "rig build";
-          rc = "rig check";
-          rd = "rig deploy";
-          rdu = "rig deploy --update";
-          rf = "rig fmt";
-          rsp = "rig secrets pull";
-          rss = "rig secrets scan";
-          zj = "zellij";
-          zja = "zellij attach -c";
-          zjl = "zellij list-sessions";
-          zp = "project-session";
-        }
-        // lib.optionalAttrs cfg.profiles.work.enable {
-          zw = "work-session";
-        };
+      shellAliases = {
+        cfp = "cd $PLATFORM_DIR";
+        e = "$EDITOR";
+        g = "git";
+        ga = "git add";
+        gb = "git branch";
+        gc = "git commit";
+        gcfg = "git config";
+        gg = "lazygit";
+        gl = "git log --oneline --decorate --graph";
+        gp = "git push";
+        gs = "git status -sb";
+        lg = "lazygit";
+        md = "mkdir -p";
+        nk = "nvim-help";
+        oc = "openclaw";
+        rb = "rig build";
+        rc = "rig check";
+        rd = "rig deploy";
+        rdu = "rig deploy --update";
+        rf = "rig fmt";
+        rsp = "rig secrets pull";
+        rss = "rig secrets scan";
+        zj = "zellij";
+        zja = "zellij attach -c";
+        zjl = "zellij list-sessions";
+        zp = "project-session";
+      }
+      // lib.optionalAttrs cfg.profiles.work.enable {
+        zw = "work-session";
+      };
 
       zsh-abbr = {
         enable = true;
@@ -186,18 +188,20 @@ in
           fi
         '')
 
-        (lib.mkOrder 1200 (lib.optionalString cfg.profiles.development.enable ''
-          if (( $+commands[wt] )); then
-            typeset wt_shell_init
-            wt_shell_init="$(
-              wt config shell init zsh 2>/dev/null || wt config shell init 2>/dev/null
-            )"
+        (lib.mkOrder 1200 (
+          lib.optionalString cfg.profiles.development.enable ''
+            if (( $+commands[wt] )); then
+              typeset wt_shell_init
+              wt_shell_init="$(
+                wt config shell init zsh 2>/dev/null || wt config shell init 2>/dev/null
+              )"
 
-            if [[ -n "$wt_shell_init" ]]; then
-              eval "$wt_shell_init"
+              if [[ -n "$wt_shell_init" ]]; then
+                eval "$wt_shell_init"
+              fi
             fi
-          fi
-        ''))
+          ''
+        ))
 
         (lib.mkOrder 1300 ''
           project-session() {

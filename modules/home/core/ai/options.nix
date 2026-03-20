@@ -13,11 +13,11 @@ in
       description = "Optional remote OpenClaw URL exposed to local helper commands.";
     };
 
-    openclawRemoteHostnameOpRef = mkOption {
+    openclawRemoteHostnameFile = mkOption {
       type = types.nullOr types.str;
       default = null;
-      example = "op://Private/OpenClaw Gateway Token/hostname";
-      description = "Optional 1Password reference for a remote OpenClaw hostname resolved at helper runtime.";
+      example = "~/.local/state/platform/secrets/openclaw/gateway_hostname";
+      description = "Path to a file containing the remote OpenClaw hostname, resolved at helper runtime.";
     };
 
     claude.package = mkOption {

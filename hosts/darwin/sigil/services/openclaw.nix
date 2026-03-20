@@ -15,10 +15,10 @@ let
   openclawStateDir = "${config.xdg.stateHome}/openclaw";
   openclawOAuthDir = "${openclawStateDir}/credentials";
   openclawWorkspaceDir = "${config.xdg.dataHome}/openclaw/workspace";
-  opCliBin = "/opt/homebrew/bin/op";
   installBin = lib.getExe' pkgs.coreutils "install";
   mktempBin = lib.getExe' pkgs.coreutils "mktemp";
   pythonBin = lib.getExe pkgs.python3;
+  secretsDir = cfg.secrets.stateDir;
   bootstrapDocNames = [
     "AGENTS.md"
     "SOUL.md"
@@ -34,15 +34,6 @@ let
   );
   tailscaleBin = lib.getExe' pkgs.tailscale "tailscale";
   tailscaleHostName = cfg.host.slug;
-  # Keep the 1Password item refs close to the host-specific service wiring so
-  # rotating or relocating an item only requires one edit.
-  openclawSecretRefs = {
-    braveApiKey = "op://Private/Brave Search/credential";
-    gatewayToken = "op://Private/OpenClaw Gateway Token/credential";
-    gatewayHostname = "op://Private/OpenClaw Gateway Token/hostname";
-    telegramBotToken = "op://Private/Telegram Bot Token/credential";
-    telegramOwner = "op://Private/Telegram User Id/username";
-  };
   openclawBaseConfig = {
     secrets.providers = {
       gatewaytoken = {
@@ -229,23 +220,22 @@ in
     "/bin/sh"
     "-c"
     ''
-            op_bin="${opCliBin}"
-            if [ ! -x "$op_bin" ]; then
-              echo "missing 1Password CLI at $op_bin" >&2
-              exit 1
-            fi
-
             read_secret() {
-              ref="$1"
+              path="$1"
               name="$2"
 
-              value="$("$op_bin" read "$ref" 2>/dev/null)" || {
-                echo "failed to read $name from $ref; verify the item reference and that 1Password CLI is signed in" >&2
+              if [ ! -f "$path" ]; then
+                echo "missing secret file for $name at $path; run 'rig deploy' to decrypt secrets" >&2
+                exit 1
+              fi
+
+              value="$(/bin/cat "$path")" || {
+                echo "failed to read $name from $path" >&2
                 exit 1
               }
 
               if [ -z "$value" ]; then
-                echo "empty value returned for $name from $ref" >&2
+                echo "empty value in secret file for $name at $path" >&2
                 exit 1
               fi
 
@@ -257,8 +247,8 @@ in
             tmp_path="$("${mktempBin}" "${openclawStateDir}/openclaw.json.XXXXXX")"
             trap 'rm -f "$tmp_path"' EXIT
 
-            TELEGRAM_OWNER_ID="$(read_secret "${openclawSecretRefs.telegramOwner}" "TELEGRAM_OWNER_ID")"
-            OPENCLAW_TAILSCALE_HOSTNAME="$(read_secret "${openclawSecretRefs.gatewayHostname}" "OPENCLAW_TAILSCALE_HOSTNAME")"
+            TELEGRAM_OWNER_ID="$(read_secret "${secretsDir}/openclaw/telegram_owner_id" "TELEGRAM_OWNER_ID")"
+            OPENCLAW_TAILSCALE_HOSTNAME="$(read_secret "${secretsDir}/openclaw/gateway_hostname" "OPENCLAW_TAILSCALE_HOSTNAME")"
 
             "${pythonBin}" - "$template_path" "$tmp_path" "$TELEGRAM_OWNER_ID" "$OPENCLAW_TAILSCALE_HOSTNAME" <<'PY'
       import json
@@ -279,7 +269,7 @@ in
       try:
           telegram_owner_id = int(telegram_owner_id_raw.strip())
       except ValueError:
-          print("invalid TELEGRAM_OWNER_ID from 1Password; expected an integer", file=sys.stderr)
+          print("invalid TELEGRAM_OWNER_ID; expected an integer", file=sys.stderr)
           raise SystemExit(1)
 
       with open(template_path, "r", encoding="utf-8") as handle:
@@ -288,7 +278,7 @@ in
       try:
           origin = normalize_url(tailscale_hostname)
       except ValueError as exc:
-          print(f"invalid OPENCLAW_TAILSCALE_HOSTNAME from 1Password: {exc}", file=sys.stderr)
+          print(f"invalid OPENCLAW_TAILSCALE_HOSTNAME: {exc}", file=sys.stderr)
           raise SystemExit(1)
       allowed_origins = config["gateway"]["controlUi"]["allowedOrigins"]
       if origin not in allowed_origins:
@@ -307,9 +297,9 @@ in
             /bin/mv "$tmp_path" "$config_path"
             trap - EXIT
 
-            OPENCLAW_GATEWAY_TOKEN="$(read_secret "${openclawSecretRefs.gatewayToken}" "OPENCLAW_GATEWAY_TOKEN")" \
-            TELEGRAM_BOT_TOKEN="$(read_secret "${openclawSecretRefs.telegramBotToken}" "TELEGRAM_BOT_TOKEN")" \
-            BRAVE_API_KEY="$(read_secret "${openclawSecretRefs.braveApiKey}" "BRAVE_API_KEY")" \
+            OPENCLAW_GATEWAY_TOKEN="$(read_secret "${secretsDir}/openclaw/gateway_token" "OPENCLAW_GATEWAY_TOKEN")" \
+            TELEGRAM_BOT_TOKEN="$(read_secret "${secretsDir}/openclaw/telegram_bot_token" "TELEGRAM_BOT_TOKEN")" \
+            BRAVE_API_KEY="$(read_secret "${secretsDir}/openclaw/brave_api_key" "BRAVE_API_KEY")" \
               exec "${pkgs.openclaw-gateway}/bin/openclaw" gateway --port 18789
     ''
   ];

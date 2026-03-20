@@ -42,55 +42,10 @@ install_nix() {
   require_command nix || die "nix installation failed"
 }
 
-# ── 1Password CLI ────────────────────────────────────────────────────
-
-install_op_cli() {
-  if require_command op; then
-    info "op CLI already installed"
-    return 0
-  fi
-
-  info "installing 1Password CLI"
-  pkg_url="https://cache.agilebits.com/dist/1P/op2/pkg/v2.30.3/op_apple_universal_v2.30.3.pkg"
-  tmp_pkg="${TMPDIR:-/tmp}/op-cli.pkg"
-
-  cleanup_op_pkg() {
-    rm -f -- "$tmp_pkg"
-  }
-  trap cleanup_op_pkg EXIT HUP INT TERM
-
-  curl -fsSL -o "$tmp_pkg" "$pkg_url"
-  sudo installer -pkg "$tmp_pkg" -target /
-  rm -f -- "$tmp_pkg"
-  trap - EXIT HUP INT TERM
-
-  require_command op || die "op CLI installation failed"
-}
-
-# ── 1Password sign-in ────────────────────────────────────────────────
-
-ensure_op_signed_in() {
-  if op whoami >/dev/null 2>&1; then
-    info "1Password already signed in"
-    return 0
-  fi
-
-  if op account list --format=json 2>/dev/null | grep -q '"url"'; then
-    info "re-authenticating 1Password"
-    op signin
-  else
-    info "no 1Password accounts configured — adding account (interactive)"
-    op account add
-    op signin
-  fi
-
-  op whoami >/dev/null 2>&1 || die "1Password sign-in failed"
-}
-
 # ── Clone config repo ────────────────────────────────────────────────
 
 clone_config_repo() {
-  repo_dir="$HOME/dev/personal/repos/config"
+  repo_dir="${CONFIG_REPO_DIR:-${RIG_REPO_ROOT:-${PLATFORM_DIR:-$HOME/dev/personal/repos/config}}}"
   repo_url="${CONFIG_REPO_URL:-https://github.com/solforged/config.git}"
 
   if [ -d "$repo_dir/.git" ]; then
@@ -109,10 +64,8 @@ host="${1:-}"
 [ -n "$host" ] || die "usage: bootstrap <host>"
 
 install_nix
-install_op_cli
-ensure_op_signed_in
 clone_config_repo
 
-repo_dir="$HOME/dev/personal/repos/config"
+repo_dir="${CONFIG_REPO_DIR:-${RIG_REPO_ROOT:-${PLATFORM_DIR:-$HOME/dev/personal/repos/config}}}"
 info "running rig bootstrap $host"
 exec "$repo_dir/bin/rig" bootstrap "$host"

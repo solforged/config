@@ -6,8 +6,8 @@
 }:
 let
   cfg = osConfig.platform;
-  secretConfig = "${config.xdg.stateHome}/platform/secrets/nushell/local.nu";
-  secretEnv = "${config.xdg.stateHome}/platform/secrets/nushell/env.nu";
+  secretConfig = "${cfg.secrets.stateDir}/nushell/local.nu";
+  secretEnv = "${cfg.secrets.stateDir}/nushell/env.nu";
   localConfig = "${config.xdg.configHome}/nushell/local.nu";
   localEnv = "${config.xdg.configHome}/nushell/env.local.nu";
 in

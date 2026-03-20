@@ -135,14 +135,15 @@ in
         description = "Preferred password manager integration.";
       };
 
-      passwordManagerSshAgentSocket = mkOption {
-        type = types.str;
-        default = "${config.platform.user.home}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
-        description = "SSH agent socket path used when the selected password manager exposes one.";
-      };
     };
 
     local = {
+      repoRoot = mkOption {
+        type = types.str;
+        default = "${config.platform.user.home}/dev/personal/repos/config";
+        description = "Absolute path to this config repository checkout.";
+      };
+
       gitInclude = mkOption {
         type = types.str;
         default = "~/.config/git/local.inc";
@@ -165,8 +166,8 @@ in
     secrets = {
       stateDir = mkOption {
         type = types.str;
-        default = "~/.local/state/platform/secrets";
-        description = "Runtime secrets directory populated by rig secrets pull.";
+        default = "${config.platform.user.home}/.local/state/platform/secrets";
+        description = "Absolute runtime secrets directory populated by activation.";
       };
     };
 

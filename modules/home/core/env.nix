@@ -12,8 +12,6 @@
 }:
 let
   cfg = osConfig.platform;
-  isDarwin = lib.hasSuffix "darwin" cfg.host.platform;
-  use1Password = cfg.apps.passwordManager == "1password";
   editorCommand =
     if cfg.apps.editor == "emacs" then
       toString (
@@ -58,8 +56,5 @@ in
     TASKDATA = "${xdg.dataHome}/task";
     TASKRC = "${xdg.configHome}/task/taskrc";
     VISUAL = editorCommand;
-  }
-  // lib.optionalAttrs (use1Password && isDarwin) {
-    SSH_AUTH_SOCK = cfg.apps.passwordManagerSshAgentSocket;
   };
 }

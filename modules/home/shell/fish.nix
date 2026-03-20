@@ -6,7 +6,7 @@
 }:
 let
   cfg = osConfig.platform;
-  secretFish = "${config.xdg.stateHome}/platform/secrets/fish/local.fish";
+  secretFish = "${cfg.secrets.stateDir}/fish/local.fish";
   localFish = "${config.xdg.configHome}/fish/local.fish";
 in
 {

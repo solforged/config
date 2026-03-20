@@ -13,6 +13,7 @@
         ./preferences.nix
         ./packages.nix
         ./power.nix
+        ./secrets.nix
       ];
 
       nixpkgs.overlays = [
