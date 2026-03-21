@@ -27,6 +27,19 @@ in
           };
         };
       };
+      hooks = {
+        PostToolUse = [
+          {
+            matcher = "Edit|Write";
+            hooks = [
+              {
+                type = "command";
+                command = "~/.local/bin/claude-hook-nixfmt";
+              }
+            ];
+          }
+        ];
+      };
       permissions = {
         allow = [
           # Built-in read-only tools
@@ -128,10 +141,12 @@ in
       nodePackages.typescript-language-server
       nodePackages.prettier
       pnpm
+      python3Packages.ipython
       pyright
       (lib.hiPrio python3)
       resvg
       ruff
+      uv
       rust-analyzer
       rustc
       rustfmt

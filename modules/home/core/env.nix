@@ -64,6 +64,7 @@ in
     NPM_CONFIG_USERCONFIG = "${xdg.configHome}/npm/npmrc";
     PSQL_HISTORY = "${xdg.stateHome}/psql/history";
     PYTHON_HISTORY = "${xdg.stateHome}/python/history";
+    VIRTUAL_ENV_DISABLE_PROMPT = "1";
     RIG_HOST = cfg.host.slug;
     RUSTUP_HOME = "${xdg.dataHome}/rustup";
     TASKDATA = "${xdg.dataHome}/task";

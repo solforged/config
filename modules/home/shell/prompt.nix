@@ -94,7 +94,7 @@ in
       };
 
       python = {
-        format = "via $symbol[$version]($style) ";
+        format = "via $symbol[$version( \\($virtualenv\\))]($style) ";
         style = "bold yellow";
         symbol = "[](bold green) ";
       };

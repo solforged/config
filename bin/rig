@@ -108,6 +108,7 @@ Commands:
   build [host]             Build the host system closure
   deploy [host] [options]  Build and activate the host
   check                    Run flake checks
+  context [host] [--json]  Show host config and repo state summary
   fmt                      Format the repository with the flake formatter
   update                   Update flake inputs
   host [host]              Print the detected default host
@@ -196,12 +197,38 @@ Examples:
 EOF
 }
 
+usage_context() {
+  cat <<'EOF'
+Usage: rig context [host] [--json]
+
+Show a summary of the host configuration and repository state.
+Useful as quick orientation for humans and AI coding agents.
+
+Options:
+  -j, --json               Output as JSON (requires jq)
+
+Shows:
+  - Host name and platform
+  - Enabled profiles
+  - Active app selections (shell, editor, terminal, browser)
+  - Git state (branch, status, last commit)
+  - Secrets status (age key present or missing)
+
+Examples:
+  rig context
+  rig context sigil
+  rig context --json
+  rig context sigil --json
+EOF
+}
+
 usage_help() {
   cat <<'EOF'
 Usage: rig help [command]
 
 Commands with dedicated help:
   bootstrap
+  context
   deploy
   secrets
 
@@ -209,6 +236,7 @@ Examples:
   rig help
   rig help deploy
   rig help bootstrap
+  rig help context
   rig help secrets
 EOF
 }
@@ -222,6 +250,7 @@ command_list() {
   cat <<'EOF'
 bootstrap
 build
+context
 deploy
 check
 fmt
@@ -398,6 +427,9 @@ show_command_help() {
       ;;
     bootstrap)
       usage_bootstrap
+      ;;
+    context)
+      usage_context
       ;;
     deploy)
       usage_deploy
@@ -1076,6 +1108,133 @@ ensure_age_key() {
   chmod 600 "$key_file"
 }
 
+nix_setting_value() {
+  _nsv_key="$1"
+  _nsv_file="$2"
+  grep -E "${_nsv_key}[[:space:]]*=" "$_nsv_file" 2>/dev/null |
+    grep -oE '"[^"]+"' |
+    tr -d '"' |
+    head -1
+}
+
+do_context() {
+  json_mode=0
+  context_host=""
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      -j|--json)
+        json_mode=1
+        ;;
+      -h|--help)
+        usage_context
+        exit 0
+        ;;
+      -*)
+        die "unknown context flag: $1"
+        ;;
+      *)
+        if [ -n "$context_host" ]; then
+          die "usage: rig context [host] [--json]"
+        fi
+        context_host="$1"
+        ;;
+    esac
+    shift
+  done
+
+  host="$(resolve_host_arg ${context_host:+"$context_host"})"
+  kind="$(host_kind "$host")"
+  profile_file="$(host_profile_file "$host")"
+
+  # Enabled profiles
+  known_profiles="base desktop development media personal work"
+  enabled_profiles=""
+  for p in $known_profiles; do
+    if host_has_profile "$host" "$p" 2>/dev/null; then
+      enabled_profiles="${enabled_profiles:+$enabled_profiles, }$p"
+    fi
+  done
+
+  # App selections
+  app_shell="$(nix_setting_value 'shell' "$profile_file")"
+  app_editor="$(nix_setting_value 'editor' "$profile_file")"
+  app_terminal="$(nix_setting_value 'terminal' "$profile_file")"
+  app_browser="$(nix_setting_value 'browser' "$profile_file")"
+
+  # Git state
+  cd "$repo_root"
+  git_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || printf 'detached')"
+  git_commit="$(git log -1 --format='%h %s' 2>/dev/null || printf 'none')"
+  git_dirty="$(git status --porcelain 2>/dev/null || true)"
+
+  if [ -z "$git_dirty" ]; then
+    git_status="clean"
+  else
+    modified="$(printf '%s\n' "$git_dirty" | grep -cE '^\s?[MADRCU]' || true)"
+    untracked="$(printf '%s\n' "$git_dirty" | grep -c '^??' || true)"
+    git_status="${modified} modified, ${untracked} untracked"
+  fi
+
+  # Secrets
+  if has_age_key; then
+    age_status="present"
+  else
+    age_status="missing"
+  fi
+
+  if [ "$json_mode" -eq 1 ]; then
+    require_command jq
+
+    profiles_json="[]"
+    for p in $known_profiles; do
+      if host_has_profile "$host" "$p" 2>/dev/null; then
+        profiles_json="$(printf '%s' "$profiles_json" | jq -c --arg p "$p" '. + [$p]')"
+      fi
+    done
+
+    jq -n \
+      --arg host "$host" \
+      --arg platform "$kind" \
+      --argjson profiles "$profiles_json" \
+      --arg shell "${app_shell:-}" \
+      --arg editor "${app_editor:-}" \
+      --arg terminal "${app_terminal:-}" \
+      --arg browser "${app_browser:-}" \
+      --arg repo_root "$repo_root" \
+      --arg branch "$git_branch" \
+      --arg status "$git_status" \
+      --arg last_commit "$git_commit" \
+      --argjson age_key "$([ "$age_status" = "present" ] && printf 'true' || printf 'false')" \
+      '{
+        host: { name: $host, platform: $platform },
+        profiles: $profiles,
+        apps: { shell: $shell, editor: $editor, terminal: $terminal, browser: $browser },
+        repo: { root: $repo_root, branch: $branch, status: $status, last_commit: $last_commit },
+        secrets: { age_key: $age_key }
+      }'
+  else
+    printf '## Host\n'
+    printf '%s (%s)\n\n' "$host" "$kind"
+
+    printf '## Profiles\n'
+    printf '%s\n\n' "${enabled_profiles:-none}"
+
+    printf '## Apps\n'
+    printf 'shell: %s | editor: %s | terminal: %s | browser: %s\n\n' \
+      "${app_shell:--}" "${app_editor:--}" "${app_terminal:--}" "${app_browser:--}"
+
+    printf '## Repository\n'
+    printf 'root: %s\n' "$repo_root"
+    printf 'branch: %s\n' "$git_branch"
+    printf 'status: %s\n' "$git_status"
+    printf 'last commit: %s\n\n' "$git_commit"
+
+    printf '## Secrets\n'
+    printf 'age key: %s\n' "$age_status"
+  fi
+}
+
 do_bootstrap() {
   case "${1:-}" in
     -h|--help)
@@ -1182,6 +1341,9 @@ case "$cmd" in
     ;;
   check)
     do_check
+    ;;
+  context)
+    do_context "$@"
     ;;
   fmt)
     do_fmt

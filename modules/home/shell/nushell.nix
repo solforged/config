@@ -51,6 +51,31 @@ let
   nvimHelp = pkgs.writeShellScript "nvim-help" ''
     exec nvim '+Telescope keymaps'
   '';
+  agentSession = pkgs.writeShellScript "agent-session" ''
+    if root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+      :
+    else
+      root="$PWD"
+    fi
+
+    session="$(basename "$root" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '-')"
+    session="''${session#-}"
+    session="''${session%-}"
+
+    if [ -z "$session" ]; then
+      session="shell"
+    fi
+
+    session="agent-$session"
+
+    cd "$root" || exit 1
+
+    if zellij list-sessions --short 2>/dev/null | grep -Fxq "$session"; then
+      exec zellij attach "$session"
+    else
+      exec zellij --session "$session" --layout agent
+    fi
+  '';
 in
 {
   config = lib.mkIf (cfg.apps.shell == "nushell") {
@@ -122,6 +147,10 @@ in
       // lib.optionalAttrs cfg.profiles.work.enable {
         zw = builtins.toString workSession;
         "work-session" = builtins.toString workSession;
+      }
+      // lib.optionalAttrs cfg.profiles.development.enable {
+        za = builtins.toString agentSession;
+        "agent-session" = builtins.toString agentSession;
       };
       extraConfig = ''
         def --env cache [] {
