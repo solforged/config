@@ -21,6 +21,7 @@ in
       ];
       terminal = "ghostty";
       browser = "chatgpt-atlas";
+      notes = "obsidian";
       passwordManager = "1password";
     };
 

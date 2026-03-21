@@ -52,6 +52,12 @@ in
         enableNushellIntegration = cfg.apps.shell == "nushell";
         enableZshIntegration = true;
       };
+      programs.atuin = {
+        enable = true;
+        enableZshIntegration = cfg.apps.shell == "zsh";
+        enableNushellIntegration = cfg.apps.shell == "nushell";
+        flags = [ "--disable-up-arrow" ];
+      };
       programs.fzf.enable = true;
       programs.home-manager.enable = true;
       programs.zoxide = {

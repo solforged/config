@@ -11,6 +11,7 @@ let
     browser = {
       brave = [ "brave-browser" ];
       chatgpt-atlas = [ "chatgpt-atlas" ];
+      chrome = [ "google-chrome" ];
       safari = [ ];
       none = [ ];
     };
@@ -18,6 +19,10 @@ let
       ghostty = [ "ghostty" ];
       kitty = [ "kitty" ];
       terminal = [ ];
+    };
+    notes = {
+      obsidian = [ "obsidian" ];
+      none = [ ];
     };
     passwordManager = {
       "1password" = [
@@ -31,6 +36,7 @@ let
   appCasks = lib.flatten [
     appCaskCatalog.browser.${cfg.apps.browser}
     appCaskCatalog.terminal.${cfg.apps.terminal}
+    appCaskCatalog.notes.${cfg.apps.notes}
     appCaskCatalog.passwordManager.${cfg.apps.passwordManager}
   ];
 in

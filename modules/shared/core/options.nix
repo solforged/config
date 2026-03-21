@@ -117,11 +117,21 @@ in
         type = types.enum [
           "brave"
           "chatgpt-atlas"
+          "chrome"
           "safari"
           "none"
         ];
         default = "none";
         description = "Preferred browser.";
+      };
+
+      notes = mkOption {
+        type = types.enum [
+          "obsidian"
+          "none"
+        ];
+        default = "none";
+        description = "Preferred notes app.";
       };
 
       passwordManager = mkOption {
