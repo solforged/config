@@ -15,12 +15,16 @@ rig deploy --update     # Update flake inputs, then build and activate
 rig build               # Build without activating
 rig check               # Run flake checks (evaluates all hosts)
 rig fmt                 # Format all .nix files (nixfmt-rfc-style)
+rig update              # Update flake inputs (nix flake update)
+rig host                # Show the current host name
 rig hosts               # List known hosts
+rig context             # Show host config summary (profiles, apps, git state)
+rig bootstrap           # First-time setup on a new machine
 rig secrets scan        # Scan tracked files for plaintext secrets
 sops secrets/secrets.yaml  # Edit encrypted secrets
 ```
 
-The pre-commit hook runs `check-secrets --staged` and `nix fmt -- --check`. Install it with `rig install-hooks`.
+The pre-commit hook runs `check-secrets --staged`. Install it with `rig install-hooks`.
 
 ## Architecture
 
@@ -35,11 +39,12 @@ Current darwin hosts: **atlas**, **hyperion**, **sigil**.
 All cross-cutting config lives under `platform.*` (defined in `modules/shared/core/options.nix`):
 
 - `platform.user` — username, home, fullName, email
-- `platform.host` — slug, platform, stateVersion
-- `platform.apps` — shell (zsh/fish/nushell), editor (nvim/emacs/helix), terminal, browser, passwordManager
+- `platform.host` — slug, title, platform, stateVersion, homeStateVersion
+- `platform.apps` — shell (zsh/fish/nushell), editor (nvim/emacs/helix), enabledEditors, terminal, browser, notes, passwordManager
 - `platform.profiles` — toggleable feature sets (base, desktop, development, media, personal, work)
+- `platform.local` — repoRoot, gitInclude, sshConfig, zshLocal (paths for local overrides)
 - `platform.packages.{home,system}` — merged package lists contributed by profiles
-- `platform.secrets` — runtime secrets directory path
+- `platform.secrets.stateDir` — runtime secrets directory populated by activation
 
 ### Profiles vs modules
 
@@ -50,7 +55,7 @@ All cross-cutting config lives under `platform.*` (defined in `modules/shared/co
 - `modules/darwin/` — nix-darwin system config (activation, homebrew, macOS defaults, secrets)
 - `modules/nixos/` — NixOS system config
 - `modules/home/` — Home Manager config, organized by domain:
-  - `core/` — git, ssh, env, AI tools, worktrunk
+  - `core/` — git, ssh, env, ai (claude, lumen), worktrunk
   - `shell/` — zsh, fish, nushell, prompt (starship)
   - `editor/` — nvim (nixvim), emacs, helix
   - `desktop/` — ghostty, zellij, yazi, dock management
@@ -58,7 +63,7 @@ All cross-cutting config lives under `platform.*` (defined in `modules/shared/co
 
 ### Module pattern for options
 
-Many modules use a three-file pattern: `default.nix` (imports), `options.nix` (option declarations), `home.nix` (Home Manager implementation). Options declared in `modules/home/*/options.nix` are imported at the system level in `modules/home/default.nix` so hosts can set them directly.
+Feature submodules that expose host-level options (ai, dock, music) use a three-file pattern: `default.nix` (imports), `options.nix` (option declarations), `home.nix` (Home Manager implementation). Options declared in these `options.nix` files are imported at the system level in `modules/home/default.nix` so hosts can set them directly. Simpler modules are single `.nix` files (e.g., `core/git.nix`, `core/env.nix`).
 
 ### Local identity
 
@@ -75,6 +80,23 @@ Secrets are managed by **sops-nix** with age encryption. The age key lives at `~
 ## Formatting
 
 All Nix files use `nixfmt-rfc-style` (the flake's formatter). Run `rig fmt` before committing.
+
+## Commit style
+
+Commits use a `domain: lowercase description` format where the domain is the feature area being changed — not conventional-commits types. Examples from history:
+
+```
+gitignore: exclude worktree tracking directories
+rig: add host context command and tooling hooks
+python: wire up LSP, formatting, and dev tooling
+terminal: add AI commit drafting, git workflow tools, and shell history
+bootstrap: harden first-time deployment on new hosts
+secrets: migrate secrets to sops-nix
+editor: add emacs, helix, and modular nixvim configs
+darwin: add hyperion and refine host defaults
+```
+
+Use an established domain from the repo history when one fits. Keep the description concise — one line, no bullet lists.
 
 ## Adding a new host
 
