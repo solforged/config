@@ -9,11 +9,10 @@
 
     apps = {
       shell = "zsh";
-      editor = "emacs";
+      editor = "nvim";
       enabledEditors = [
         "nvim"
         "helix"
-        "emacs"
       ];
       terminal = "ghostty";
       browser = "brave";
@@ -27,7 +26,6 @@
         "Apps"
         "Brave Browser"
         "Ghostty"
-        "Emacs Client"
         "Signal"
         "1Password"
         "App Store"
@@ -35,7 +33,6 @@
         "System Settings"
       ];
       touchIdSudo.enable = true;
-      capsToCtrl.enable = false;
       capsToEscape.enable = true;
     };
   };

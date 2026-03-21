@@ -150,10 +150,10 @@ in
 
       initContent = lib.mkMerge [
         (lib.mkOrder 550 ''
-          if [[ -x "/opt/homebrew/bin/brew" ]]; then
-            eval "$(/opt/homebrew/bin/brew shellenv)"
-          elif [[ -x "/usr/local/bin/brew" ]]; then
-            eval "$(/usr/local/bin/brew shellenv)"
+          if [[ -d "/opt/homebrew/share/zsh/site-functions" ]]; then
+            fpath[1,0]="/opt/homebrew/share/zsh/site-functions"
+          elif [[ -d "/usr/local/share/zsh/site-functions" ]]; then
+            fpath[1,0]="/usr/local/share/zsh/site-functions"
           fi
         '')
 

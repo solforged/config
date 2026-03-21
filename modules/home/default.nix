@@ -49,11 +49,16 @@ in
       };
       programs.eza = {
         enable = true;
+        enableNushellIntegration = cfg.apps.shell == "nushell";
         enableZshIntegration = true;
       };
       programs.fzf.enable = true;
       programs.home-manager.enable = true;
-      programs.zoxide.enable = true;
+      programs.zoxide = {
+        enable = true;
+        enableNushellIntegration = cfg.apps.shell == "nushell";
+        enableZshIntegration = cfg.apps.shell == "zsh";
+      };
 
       home.activation.ensureGnupgHome = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         /bin/mkdir -p "${config.xdg.configHome}/gnupg"
