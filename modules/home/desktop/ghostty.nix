@@ -10,9 +10,17 @@ in
       enableZshIntegration = cfg.apps.shell == "zsh";
       settings = {
         "font-size" = 12;
-        theme = "dark:TokyoNight Storm,light:TokyoNight Storm";
+        "font-family" = [
+          "JetBrains Mono"
+        ];
+        "macos-option-as-alt" = true;
+        theme = "dark:Doom One,light:Doom One";
         "scrollback-limit" = 1000000;
         keybind = [
+          # Discoverability
+          "super+shift+p=toggle_command_palette"
+          "super+shift+slash=toggle_command_palette"
+
           # Tabs — brackets + numbers
           "super+t=new_tab"
           "super+w=close_surface"
@@ -36,7 +44,6 @@ in
           "super+r=reload_config"
         ];
         "window-save-state" = "always";
-        "auto-update-channel" = "tip";
       };
     };
   };

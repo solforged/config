@@ -34,8 +34,8 @@ in
       lib.optionalAttrs (aiCfg.openclawRemoteUrl != null) {
         OPENCLAW_REMOTE_URL = aiCfg.openclawRemoteUrl;
       }
-      // lib.optionalAttrs (aiCfg.openclawRemoteHostnameOpRef != null) {
-        OPENCLAW_REMOTE_HOSTNAME_OP_REF = aiCfg.openclawRemoteHostnameOpRef;
+      // lib.optionalAttrs (aiCfg.openclawRemoteHostnameFile != null) {
+        OPENCLAW_REMOTE_HOSTNAME_FILE = aiCfg.openclawRemoteHostnameFile;
       };
 
     home.activation.claudeSettings = lib.mkIf (aiCfg.claude.settings != { }) (
@@ -113,33 +113,22 @@ in
           esac
         }
 
-        resolve_op_bin() {
-          if command -v op >/dev/null 2>&1; then
-            command -v op
-            return 0
-          fi
-
-          if [ -x /opt/homebrew/bin/op ]; then
-            printf '%s\n' /opt/homebrew/bin/op
-            return 0
-          fi
-
-          printf '%s\n' "error: 1Password CLI is required to resolve OPENCLAW_REMOTE_HOSTNAME_OP_REF" >&2
-          exit 1
-        }
-
-        remote_ref="''${OPENCLAW_REMOTE_HOSTNAME_OP_REF:-}"
+        hostname_file="''${OPENCLAW_REMOTE_HOSTNAME_FILE:-}"
         url="''${OPENCLAW_REMOTE_URL:-}"
 
-        if [ -n "$remote_ref" ]; then
-          op_bin="$(resolve_op_bin)"
-          hostname="$("$op_bin" read "$remote_ref" 2>/dev/null)" || {
-            printf '%s\n' "error: failed to read OPENCLAW_REMOTE_HOSTNAME_OP_REF via 1Password CLI" >&2
+        if [ -n "$hostname_file" ]; then
+          if [ ! -f "$hostname_file" ]; then
+            printf '%s\n' "error: hostname file not found at $hostname_file; run 'rig deploy' to decrypt secrets" >&2
+            exit 1
+          fi
+
+          hostname="$(/bin/cat "$hostname_file")" || {
+            printf '%s\n' "error: failed to read hostname from $hostname_file" >&2
             exit 1
           }
 
           if [ -z "$hostname" ]; then
-            printf '%s\n' "error: OPENCLAW_REMOTE_HOSTNAME_OP_REF resolved to an empty value" >&2
+            printf '%s\n' "error: hostname file at $hostname_file is empty" >&2
             exit 1
           fi
 

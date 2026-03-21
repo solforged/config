@@ -112,7 +112,7 @@ Commands:
   update                   Update flake inputs
   host [host]              Print the detected default host
   hosts                    List known hosts
-  secrets <subcommand>     Manage secrets via 1Password CLI
+  secrets <subcommand>     Manage secrets via sops-nix
   install-hooks            Configure git to use the tracked pre-commit hook
   help [command]           Show help for rig or a command
 
@@ -822,45 +822,6 @@ install_homebrew() {
   fi
 
   command -v brew >/dev/null 2>&1 || die "failed to install Homebrew"
-}
-
-install_op_cli() {
-  if command -v op >/dev/null 2>&1; then
-    return 0
-  fi
-
-  printf '%s\n' "installing 1Password CLI" >&2
-  pkg_url="https://cache.agilebits.com/dist/1P/op2/pkg/v2.30.3/op_apple_universal_v2.30.3.pkg"
-  tmp_pkg="$(mktemp "${TMPDIR:-/tmp}/op-cli.XXXXXX.pkg")"
-
-  cleanup_op_pkg() {
-    rm -f -- "$tmp_pkg"
-  }
-  trap cleanup_op_pkg EXIT HUP INT TERM
-
-  curl -fsSL -o "$tmp_pkg" "$pkg_url"
-  sudo installer -pkg "$tmp_pkg" -target /
-  rm -f -- "$tmp_pkg"
-  trap - EXIT HUP INT TERM
-
-  command -v op >/dev/null 2>&1 || die "failed to install op CLI"
-}
-
-ensure_op_signed_in() {
-  if op whoami >/dev/null 2>&1; then
-    return 0
-  fi
-
-  if op account list --format=json 2>/dev/null | grep -q '"url"'; then
-    printf '%s\n' "re-authenticating 1Password" >&2
-    op signin
-  else
-    printf '%s\n' "no 1Password accounts configured — adding account (interactive)" >&2
-    op account add
-    op signin
-  fi
-
-  op whoami >/dev/null 2>&1 || die "1Password sign-in failed"
 }
 
 do_secrets_pull() {

@@ -29,7 +29,9 @@
   (setq eglot-send-changes-idle-time 0.2)
   (add-to-list 'eglot-server-programs '((nix-mode) "nil"))
   (add-to-list 'eglot-server-programs '((tsx-ts-mode typescript-ts-mode) "typescript-language-server" "--stdio"))
-  (add-to-list 'eglot-server-programs '(python-ts-mode "pyright-langserver" "--stdio")))
+  (add-to-list 'eglot-server-programs '(python-ts-mode "pyright-langserver" "--stdio"))
+  (setq-default eglot-workspace-configuration
+                '(:nil (:nix (:flake (:autoArchive t))))))
 
 (use-package consult-eglot
   :after (consult eglot))
@@ -49,6 +51,12 @@
 
 (use-package nix-mode
   :mode "\\.nix\\'")
+
+(use-package markdown-mode
+  :mode ("\\.md\\'" . markdown-mode)
+  :init
+  (setq markdown-fontify-code-blocks-natively t)
+  (setq markdown-header-scaling t))
 
 (with-eval-after-load 'general
   (dotfiles/leader-def

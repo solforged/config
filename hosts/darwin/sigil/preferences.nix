@@ -1,3 +1,7 @@
+{ config, ... }:
+let
+  cfg = config.platform;
+in
 {
   platform = {
     profiles = {
@@ -43,6 +47,6 @@
       openclaw.enable = true;
     };
 
-    ai.openclawRemoteHostnameOpRef = "op://Private/OpenClaw Gateway Token/hostname";
+    ai.openclawRemoteHostnameFile = "${cfg.secrets.stateDir}/openclaw/gateway_hostname";
   };
 }

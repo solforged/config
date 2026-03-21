@@ -8,11 +8,21 @@
 (defconst dotfiles/default-frame-width 160)
 (defconst dotfiles/default-frame-height 65)
 
-(use-package doom-themes
-  :config
-  (load-theme 'doom-one t)
-  (doom-themes-visual-bell-config)
-  (doom-themes-org-config))
+;; Custom Claude-inspired themes
+(add-to-list 'custom-theme-load-path (expand-file-name "themes" user-emacs-directory))
+(load-theme 'absolutely-dark t)
+
+;; Auto-switch light/dark theme with macOS appearance
+(when (boundp 'ns-system-appearance)
+  (defun dotfiles/apply-system-appearance (appearance)
+    "Load an Absolutely theme matching the macOS APPEARANCE."
+    (pcase appearance
+      ('light (load-theme 'absolutely t)
+              (setq ns-appearance 'light))
+      ('dark (load-theme 'absolutely-dark t)
+             (setq ns-appearance 'dark)))
+    (dotfiles/apply-dashboard-theme-faces))
+  (add-hook 'ns-system-appearance-change-functions #'dotfiles/apply-system-appearance))
 
 (use-package solaire-mode
   :config
@@ -32,11 +42,12 @@
 (use-package dashboard
   :ensure (:build (:not elpaca-build-compile))
   :init
-  (setq dashboard-startup-banner (expand-file-name "banner.txt" user-emacs-directory))
+  (setq dashboard-startup-banner (expand-file-name "banner.png" user-emacs-directory))
   (setq dashboard-banner-logo-title "Welcome to Emacs!")
-  (setq dashboard-display-icons-p nil)
-  (setq dashboard-set-heading-icons nil)
-  (setq dashboard-set-file-icons nil)
+  (setq dashboard-display-icons-p t)
+  (setq dashboard-set-heading-icons t)
+  (setq dashboard-set-file-icons t)
+  (setq dashboard-icon-type 'nerd-icons)
   (setq dashboard-show-shortcuts nil)
   (setq dashboard-footer-messages '("Welcome to the church of Emacs"))
   (setq dashboard-projects-backend 'project-el)
@@ -48,10 +59,17 @@
                                    (bookmarks . "m")
                                    (agenda . "a")))
   :config
-  (set-face-attribute 'dashboard-banner-logo-title nil :foreground "#f776c6" :weight 'bold :height 1.15)
-  (set-face-attribute 'dashboard-heading nil :foreground "#f776c6" :weight 'bold)
-  (set-face-attribute 'dashboard-items-face nil :foreground "#f8f8f2" :weight 'bold)
-  (set-face-attribute 'dashboard-no-items-face nil :foreground "#c0caf5")
+  (defun dotfiles/apply-dashboard-theme-faces ()
+    "Style dashboard faces from the active theme palette."
+    (when (facep 'dashboard-banner-logo-title)
+      (let ((accent (face-foreground 'font-lock-keyword-face nil t))
+            (fg     (face-foreground 'default nil t))
+            (dim    (face-foreground 'shadow nil t)))
+        (set-face-attribute 'dashboard-banner-logo-title nil :foreground accent :weight 'bold :height 1.15)
+        (set-face-attribute 'dashboard-heading nil :foreground accent :weight 'bold)
+        (set-face-attribute 'dashboard-items-face nil :foreground fg :weight 'bold)
+        (set-face-attribute 'dashboard-no-items-face nil :foreground dim))))
+  (dotfiles/apply-dashboard-theme-faces)
   (dashboard-setup-startup-hook))
 
 (use-package emacs
@@ -60,6 +78,16 @@
   :config
   (add-to-list 'default-frame-alist `(width . ,dotfiles/default-frame-width))
   (add-to-list 'default-frame-alist `(height . ,dotfiles/default-frame-height))
+  (add-hook 'window-setup-hook
+    (lambda ()
+      (let* ((workarea (frame-monitor-workarea))
+             (wa-left   (nth 0 workarea))
+             (wa-top    (nth 1 workarea))
+             (wa-width  (nth 2 workarea))
+             (wa-height (nth 3 workarea))
+             (left (+ wa-left (/ (- wa-width (frame-outer-width)) 2)))
+             (top  (+ wa-top  (/ (- wa-height (frame-outer-height)) 2))))
+        (set-frame-position (selected-frame) left top))))
   (setq initial-frame-alist
         (append
          `((width . ,dotfiles/default-frame-width)
@@ -74,9 +102,73 @@
                                 (abbreviate-file-name (buffer-file-name))
                               "%b")))))
 
+;; Match titlebar to theme on macOS
+(when (eq system-type 'darwin)
+  (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
+  (add-to-list 'default-frame-alist '(ns-appearance . dark)))
+
 (use-package exec-path-from-shell
   :if (or (daemonp) (display-graphic-p))
   :config
   (setq exec-path-from-shell-arguments '("-l"))
   (exec-path-from-shell-initialize))
+
+(use-package hl-todo
+  :hook ((prog-mode . hl-todo-mode)
+         (conf-mode . hl-todo-mode))
+  :config
+  (setq hl-todo-keyword-faces
+        '(("TODO"  . "#FF8C00")
+          ("FIXME" . "#FF4500")
+          ("HACK"  . "#FF1493")
+          ("NOTE"  . "#1E90FF")
+          ("DEPRECATED" . "#808080")
+          ("REVIEW" . "#9370DB")
+          ("BUG"   . "#FF0000"))))
+#+end_src
+
+** Helpful
+
+Replace built-in help buffers with richer, more contextual documentation that
+includes source links, keybinding cross-references, and editable values.
+
+#+begin_src emacs-lisp
+(use-package helpful
+  :commands (helpful-callable helpful-variable helpful-key helpful-at-point)
+  :bind
+  ([remap describe-function] . helpful-callable)
+  ([remap describe-variable] . helpful-variable)
+  ([remap describe-key] . helpful-key)
+  ([remap describe-command] . helpful-command))
+#+end_src
+
+** Window rules
+
+Tame popup buffers so help, compilation, and diagnostics windows don't steal
+your layout. Popper classifies ephemeral buffers and gives them consistent
+placement.
+
+#+begin_src emacs-lisp
+(use-package popper
+  :ensure (:host github :repo "karthink/popper")
+  :bind (("C-`" . popper-toggle)
+         ("M-`" . popper-cycle)
+         ("C-M-`" . popper-toggle-type))
+  :init
+  (setq popper-reference-buffers
+        '("\\*Messages\\*"
+          "\\*Warnings\\*"
+          "Output\\*$"
+          "\\*Async Shell Command\\*"
+          "\\*Compile-Log\\*"
+          "\\*Backtrace\\*"
+          help-mode
+          helpful-mode
+          compilation-mode
+          flymake-diagnostics-buffer-mode
+          vterm-mode))
+  (setq popper-window-height 0.33)
+  :config
+  (popper-mode 1)
+  (popper-echo-mode 1))
 #+end_src

@@ -14,12 +14,16 @@
     :global-prefix "M-SPC"
     ,@args))
 
+(defvar dotfiles/local-leader-map (make-sparse-keymap)
+  "Keymap shared between comma and SPC m.")
+
 (defmacro dotfiles/local-leader-def (&rest args)
   "Define local leader bindings via general."
   `(general-define-key
     :states '(normal visual motion emacs)
     :keymaps 'override
     :prefix ","
+    :prefix-map dotfiles/local-leader-map
     ,@args))
 
 (use-package evil
@@ -45,6 +49,20 @@
   (evil-snipe-mode 1)
   (evil-snipe-override-mode 1))
 
+(use-package evil-surround
+  :after evil
+  :config
+  (global-evil-surround-mode 1))
+
+(use-package evil-nerd-commenter
+  :after evil
+  :commands (evilnc-comment-or-uncomment-lines)
+  :init
+  (general-define-key
+   :states '(normal visual)
+   "gc" #'evilnc-comment-or-uncomment-lines
+   "gC" #'evilnc-comment-or-uncomment-paragraphs))
+
 (use-package general
   :ensure (:build (:not elpaca-build-compile))
   :after evil
@@ -56,6 +74,8 @@
    "C-k" #'windmove-up
    "C-l" #'windmove-right)
   (dotfiles/leader-def
+    "a" '(:ignore t :which-key "ai")
+    "A" '(:ignore t :which-key "activities")
     "b" '(:ignore t :which-key "buffers")
     "c" '(:ignore t :which-key "code")
     "e" '(:ignore t :which-key "editor")
@@ -63,6 +83,7 @@
     "g" '(:ignore t :which-key "git")
     "h" '(:ignore t :which-key "help")
     "i" '(:ignore t :which-key "insert")
+    "m" '(:keymap dotfiles/local-leader-map :which-key "mode")
     "n" '(:ignore t :which-key "notes")
     "o" '(:ignore t :which-key "open")
     "p" '(:ignore t :which-key "project")
@@ -70,14 +91,26 @@
     "s" '(:ignore t :which-key "search")
     "t" '(:ignore t :which-key "toggles")
     "w" '(:ignore t :which-key "window")
-    "x" '(:ignore t :which-key "diagnostics")))
+    "x" '(:ignore t :which-key "diagnostics")
+    "SPC" '(project-find-file :which-key "find file in project")))
+
+;; ESC quits prompts and minibuffers (Doom-style)
+(global-set-key [escape] #'keyboard-escape-quit)
+(define-key minibuffer-local-map [escape] #'abort-minibuffers)
 
 (use-package which-key
   :init
-  (setq which-key-idle-delay 0.35)
+  (setq which-key-idle-delay 0.2)
   (setq which-key-sort-order #'which-key-prefix-then-key-order)
   :config
+  (push '((nil . "window [1-9]") . t) which-key-replacement-alist)
   (which-key-mode 1))
+
+(use-package winum
+  :init
+  (setq winum-auto-setup-mode-line nil)
+  :config
+  (winum-mode 1))
 #+end_src
 
 ** Motions and editing helpers
@@ -87,6 +120,22 @@
   "Switch to the most recently visited buffer."
   (interactive)
   (switch-to-buffer (other-buffer (current-buffer) 1)))
+
+(defun dotfiles/file-minibuffer-tilde ()
+  "Reset the minibuffer path to ~/ when tilde is typed after a slash."
+  (interactive)
+  (if (and (eq (char-before) ?/)
+           (minibufferp))
+      (let ((end (point))
+            (beg (minibuffer-prompt-end)))
+        (delete-region beg end)
+        (insert "~/"))
+    (insert "~")))
+
+(add-hook 'minibuffer-setup-hook
+          (lambda ()
+            (when (eq this-command #'find-file)
+              (local-set-key "~" #'dotfiles/file-minibuffer-tilde))))
 
 (use-package avy
   :commands (avy-goto-char-timer avy-goto-word-1))
@@ -116,7 +165,7 @@
     ";" '(eval-expression :which-key "eval expression")
     ":" '(execute-extended-command :which-key "M-x")
     "'" '(dotfiles/open-terminal-here :which-key "terminal")
-    "SPC" '(project-find-file :which-key "project find file")
+    "SPC" '(execute-extended-command :which-key "M-x")
     "u" '(universal-argument :which-key "universal argument")
     "TAB" '(dotfiles/switch-to-last-buffer :which-key "last buffer"))
   (dotfiles/leader-def
@@ -142,12 +191,24 @@
     "w k" '(windmove-up :which-key "window up")
     "w l" '(windmove-right :which-key "window right")
     "w =" '(balance-windows :which-key "balance windows")
-    "w m" '(delete-other-windows :which-key "maximize"))
+    "w m" '(delete-other-windows :which-key "maximize")
+    "w u" '(winner-undo :which-key "undo layout")
+    "w r" '(winner-redo :which-key "redo layout")
+    "1" '(winum-select-window-1 :which-key "window 1")
+    "2" '(winum-select-window-2 :which-key "window 2")
+    "3" '(winum-select-window-3 :which-key "window 3")
+    "4" '(winum-select-window-4 :which-key "window 4")
+    "5" '(winum-select-window-5 :which-key "window 5")
+    "6" '(winum-select-window-6 :which-key "window 6")
+    "7" '(winum-select-window-7 :which-key "window 7")
+    "8" '(winum-select-window-8 :which-key "window 8")
+    "9" '(winum-select-window-9 :which-key "window 9"))
   (dotfiles/leader-def
-    "h f" '(describe-function :which-key "describe function")
-    "h v" '(describe-variable :which-key "describe variable")
-    "h k" '(describe-key :which-key "describe key")
+    "h f" '(helpful-callable :which-key "describe function")
+    "h v" '(helpful-variable :which-key "describe variable")
+    "h k" '(helpful-key :which-key "describe key")
     "h m" '(describe-mode :which-key "describe mode")
+    "h p" '(helpful-at-point :which-key "help at point")
     "h i" '(info :which-key "info")
     "h t" '(consult-theme :which-key "theme"))
   (general-define-key

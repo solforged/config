@@ -22,7 +22,6 @@ let
     passwordManager = {
       "1password" = [
         "1password"
-        "1password-cli"
       ];
       bitwarden = [ "bitwarden" ];
       proton-pass = [ "proton-pass" ];

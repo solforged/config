@@ -19,7 +19,18 @@
 (use-package magit
   :ensure (:host github :repo "magit/magit")
   :after transient
-  :commands (magit-status magit-project-status))
+  :commands (magit-status magit-project-status)
+  :init
+  ;; Open status in current window; only diffs get a split
+  (setq magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1)
+  ;; Restore the exact window layout when quitting magit
+  (setq magit-bury-buffer-function #'magit-restore-window-configuration)
+  ;; Auto-save file buffers before magit operations (no prompt)
+  (setq magit-save-repository-buffers 'dontask)
+  ;; Word-level diff highlighting in all hunks
+  (setq magit-diff-refine-hunk 'all)
+  ;; Skip gravatar fetching for faster revision buffers
+  (setq magit-revision-show-gravatars nil))
 
 (use-package diff-hl
   :hook ((prog-mode . diff-hl-mode)
@@ -30,7 +41,7 @@
 (use-package dired
   :ensure nil
   :config
-  (if (bound-and-true-p dotfiles-host-is-darwin)
+  (if (bound-and-true-p platform-host-is-darwin)
       (progn
         (require 'ls-lisp)
         (setq ls-lisp-dirs-first t)
@@ -44,10 +55,62 @@
   (dirvish-override-dired-mode)
   :config
   (setq dirvish-attributes '(vc-state subtree-state collapse file-size))
-  (setq dirvish-mode-line-format '(:left (sort file-time file-size symlink) :right (omit yank index))))
+  (setq dirvish-mode-line-format '(:left (sort file-time file-size symlink) :right (omit yank index)))
+  (general-define-key
+   :states 'normal
+   :keymaps 'dirvish-mode-map
+   "?" #'dirvish-dispatch
+   "q" #'dirvish-quit
+   "h" #'dired-up-directory
+   "l" #'dired-find-file
+   "gh" #'dirvish-subtree-up
+   "gl" #'dirvish-subtree-toggle
+   "TAB" #'dirvish-subtree-toggle
+   "b" #'dirvish-quick-access
+   "f" #'dirvish-file-info-menu
+   "p" #'dirvish-yank
+   "S" #'dirvish-quicksort
+   "F" #'dirvish-layout-toggle
+   "z" #'dirvish-history-jump
+   "M-b" #'dirvish-history-go-backward
+   "M-f" #'dirvish-history-go-forward
+   "M-n" #'dirvish-narrow
+   "M-m" #'dirvish-mark-menu
+   "M-s" #'dirvish-setup-menu
+   "M-e" #'dirvish-emerge-menu)
+  (general-define-key
+   :states 'normal
+   :keymaps 'dirvish-mode-map
+   :prefix "y"
+   "" '(:ignore t :which-key "yank")
+   "l" #'dirvish-copy-file-true-path
+   "n" #'dirvish-copy-file-name
+   "p" #'dirvish-copy-file-path
+   "r" #'dirvish-copy-remote-path
+   "y" #'dired-do-copy)
+  (general-define-key
+   :states 'normal
+   :keymaps 'dirvish-mode-map
+   :prefix "s"
+   "" '(:ignore t :which-key "symlinks")
+   "s" #'dirvish-symlink
+   "S" #'dirvish-relative-symlink
+   "h" #'dirvish-hardlink))
 
-(use-package eat
-  :commands (eat eat-project eat-other-window))
+(defvar vterm-shell) ;; declare special before let-binding in helpers below
+
+(use-package vterm
+  :commands (vterm vterm-other-window)
+  :init
+  (setq vterm-max-scrollback 10000)
+  (setq vterm-timer-delay 0.01))
+
+(use-package activities
+  :init
+  (setq activities-bookmark-store nil)
+  :config
+  (activities-mode 1)
+  (activities-tabs-mode 1))
 
 (use-package restart-emacs
   :commands restart-emacs)
@@ -62,13 +125,28 @@
   "Open Eat in the current project root."
   (interactive)
   (let ((default-directory (dotfiles/project-root)))
-    (call-interactively #'eat)))
+    (call-interactively #'vterm)))
+
+(defun dotfiles/vterm-run (name cmd)
+  "Open a vterm buffer named NAME in other window running CMD.
+When the process exits, close the window and kill the buffer."
+  (let ((vterm-shell cmd))
+    (vterm-other-window name))
+  (let ((buf (current-buffer))
+        (hook nil))
+    (setq hook (lambda (buffer _event)
+                 (when (eq buffer buf)
+                   (remove-hook 'vterm-exit-functions hook)
+                   (when-let ((win (get-buffer-window buffer)))
+                     (delete-window win))
+                   (kill-buffer buffer))))
+    (add-hook 'vterm-exit-functions hook)))
 
 (defun dotfiles/claude-here ()
   "Open Claude Code in the current project root."
   (interactive)
   (let ((default-directory (dotfiles/project-root)))
-    (eat-other-window "claude" t)))
+    (dotfiles/vterm-run "*claude*" "claude-bun")))
 
 (defun dotfiles/claude-with-context ()
   "Open Claude Code with current file or region as context."
@@ -79,27 +157,279 @@
          (region (when (use-region-p)
                    (buffer-substring-no-properties (region-beginning) (region-end))))
          (cmd (cond
-               (region (format "claude %s" (shell-quote-argument
+               (region (format "claude-bun %s" (shell-quote-argument
                                             (format "Regarding this code:\n```\n%s\n```" region))))
-               (file   (format "claude %s" (shell-quote-argument
+               (file   (format "claude-bun %s" (shell-quote-argument
                                             (format "Look at %s" file))))
-               (t      "claude"))))
-    (eat-other-window cmd t)))
+               (t      "claude-bun"))))
+    (dotfiles/vterm-run "*claude*" cmd)))
+
+;; ---------------------------------------------------------------------------
+;; Hive: Claude agent multiplexer over git worktrees
+;; ---------------------------------------------------------------------------
+
+(defvar dotfiles/hive-agents nil
+  "Alist of active hive agents: ((NAME . (:worktree :buffer :status :started))).")
+
+(defvar dotfiles/hive-worktree-root ".worktrees"
+  "Directory (relative to repo root) where agent worktrees are created.")
+
+(defun dotfiles/hive--repo-root ()
+  "Return the git repo root for the current project."
+  (let ((root (dotfiles/project-root)))
+    (string-trim (shell-command-to-string
+                  (format "git -C %s rev-parse --show-toplevel"
+                          (shell-quote-argument root))))))
+
+(defun dotfiles/hive--worktree-path (name)
+  "Return the worktree path for agent NAME."
+  (expand-file-name name
+    (expand-file-name dotfiles/hive-worktree-root
+      (dotfiles/hive--repo-root))))
+
+(defun dotfiles/hive--buffer-name (name)
+  "Return the vterm buffer name for agent NAME."
+  (format "*hive:%s*" name))
+
+(defun dotfiles/hive--update-status (name status)
+  "Set STATUS for agent NAME and refresh the tab bar."
+  (when-let ((agent (assoc name dotfiles/hive-agents)))
+    (plist-put (cdr agent) :status status))
+  (force-mode-line-update t))
+
+(defun dotfiles/hive--wrap-sentinel (name orig-sentinel)
+  "Return a sentinel that calls ORIG-SENTINEL then marks agent NAME as done."
+  (lambda (proc event)
+    (when orig-sentinel
+      (funcall orig-sentinel proc event))
+    (when (string-match-p "\\(finished\\|exited\\|killed\\)" event)
+      (dotfiles/hive--update-status name 'done)
+      (message "Hive: agent '%s' finished" name))))
+
+(defun dotfiles/hive-spawn (name &optional prompt)
+  "Spawn a Claude agent in a fresh worktree.
+NAME is used for the branch, worktree directory, activity tab, and buffer.
+Optional PROMPT is passed to claude as the initial message."
+  (interactive "sAgent name: ")
+  (when (assoc name dotfiles/hive-agents)
+    (if (eq (plist-get (cdr (assoc name dotfiles/hive-agents)) :status) 'done)
+        (dotfiles/hive-clean name)
+      (user-error "Agent '%s' is already running" name)))
+  (let* ((repo-root (dotfiles/hive--repo-root))
+         (worktree-dir (dotfiles/hive--worktree-path name))
+         (branch (concat "hive/" name))
+         (buf-name (dotfiles/hive--buffer-name name))
+         (cmd (if prompt
+                  (format "claude-bun %s" (shell-quote-argument prompt))
+                "claude-bun")))
+    ;; Create worktree + branch
+    (unless (file-directory-p worktree-dir)
+      (let ((err-buf (generate-new-buffer " *hive-git-err*")))
+        (unwind-protect
+            (let ((exit-code (call-process
+                              "git" nil (list nil err-buf) nil "-C" repo-root
+                              "worktree" "add" "-b" branch worktree-dir)))
+              (unless (zerop exit-code)
+                (user-error "Failed to create worktree for '%s': %s"
+                            name (string-trim (with-current-buffer err-buf
+                                                (buffer-string))))))
+          (kill-buffer err-buf))))
+    ;; Create an activity tab for this agent
+    (activities-new name)
+    ;; Open dired + vterm in the worktree
+    (let ((default-directory worktree-dir))
+      (dired worktree-dir)
+      (let ((vterm-shell cmd))
+        (vterm buf-name)))
+    ;; Track it
+    (push (cons name (list :worktree worktree-dir
+                           :buffer buf-name
+                           :status 'running
+                           :started (current-time)))
+          dotfiles/hive-agents)
+    ;; Watch for exit — chain after vterm's own sentinel so vterm-exit-functions fires
+    (when-let ((proc (get-buffer-process buf-name)))
+      (set-process-sentinel
+       proc (dotfiles/hive--wrap-sentinel name (process-sentinel proc))))
+    (message "Hive: spawned agent '%s' on branch %s" name branch)))
+
+(defun dotfiles/hive-spawn-with-prompt (name prompt)
+  "Spawn a Claude agent with a task description."
+  (interactive "sAgent name: \nsTask prompt: ")
+  (dotfiles/hive-spawn name prompt))
+
+(defun dotfiles/hive--completing-read (prompt &optional predicate)
+  "Completing-read over hive agent names, optionally filtered by PREDICATE."
+  (let ((candidates (if predicate
+                        (cl-remove-if-not
+                         (lambda (entry) (funcall predicate (cdr entry)))
+                         dotfiles/hive-agents)
+                      dotfiles/hive-agents)))
+    (unless candidates (user-error "No agents"))
+    (completing-read prompt (mapcar #'car candidates) nil t)))
+
+(defun dotfiles/hive-switch (name)
+  "Switch to agent NAME's activity tab."
+  (interactive (list (dotfiles/hive--completing-read "Switch to agent: ")))
+  (activities-resume name))
+
+(defun dotfiles/hive-focus (name)
+  "Jump to agent NAME's vterm buffer."
+  (interactive (list (dotfiles/hive--completing-read "Focus agent: ")))
+  (let ((buf-name (plist-get (cdr (assoc name dotfiles/hive-agents)) :buffer)))
+    (if (get-buffer buf-name)
+        (switch-to-buffer buf-name)
+      (user-error "Buffer %s no longer exists" buf-name))))
+
+(defun dotfiles/hive-diff (name)
+  "Show the diff for agent NAME's worktree."
+  (interactive (list (dotfiles/hive--completing-read "Diff agent: ")))
+  (let ((default-directory (plist-get (cdr (assoc name dotfiles/hive-agents)) :worktree)))
+    (magit-diff-working-tree "HEAD")))
+
+(defun dotfiles/hive-log (name)
+  "Show commits the agent added on its branch."
+  (interactive (list (dotfiles/hive--completing-read "Log agent: ")))
+  (let ((default-directory (plist-get (cdr (assoc name dotfiles/hive-agents)) :worktree)))
+    (magit-log-head)))
+
+(defun dotfiles/hive-clean (name)
+  "Tear down agent NAME: kill buffer, remove activity, prune worktree."
+  (interactive (list (dotfiles/hive--completing-read "Clean agent: ")))
+  (let* ((entry (assoc name dotfiles/hive-agents))
+         (props (cdr entry))
+         (buf-name (plist-get props :buffer))
+         (worktree-dir (plist-get props :worktree))
+         (branch (concat "hive/" name)))
+    ;; Kill the vterm buffer
+    (when-let ((buf (get-buffer buf-name)))
+      (when (get-buffer-process buf)
+        (delete-process (get-buffer-process buf)))
+      (kill-buffer buf))
+    ;; Kill the activity
+    (ignore-errors (activities-kill name))
+    ;; Remove worktree and branch
+    (let ((repo-root (dotfiles/hive--repo-root)))
+      (when (file-directory-p worktree-dir)
+        (call-process "git" nil nil nil "-C" repo-root
+                      "worktree" "remove" "--force" worktree-dir))
+      (when (zerop (call-process "git" nil nil nil "-C" repo-root
+                                 "rev-parse" "--verify" branch))
+        (call-process "git" nil nil nil "-C" repo-root
+                      "branch" "-D" branch)))
+    ;; Forget it
+    (setq dotfiles/hive-agents (assoc-delete-all name dotfiles/hive-agents))
+    (force-mode-line-update t)
+    (message "Hive: cleaned up agent '%s'" name)))
+
+(defun dotfiles/hive-clean-done ()
+  "Clean up all agents with 'done' status."
+  (interactive)
+  (let ((done (cl-remove-if-not
+               (lambda (entry) (eq (plist-get (cdr entry) :status) 'done))
+               dotfiles/hive-agents)))
+    (if (null done)
+        (message "Hive: no finished agents to clean")
+      (dolist (entry done)
+        (dotfiles/hive-clean (car entry))))))
+
+(defun dotfiles/hive-status ()
+  "Display a summary of all hive agents in the echo area."
+  (interactive)
+  (if (null dotfiles/hive-agents)
+      (message "Hive: no active agents")
+    (message "Hive: %s"
+             (mapconcat
+              (lambda (entry)
+                (let* ((name (car entry))
+                       (props (cdr entry))
+                       (status (plist-get props :status))
+                       (elapsed (float-time
+                                 (time-subtract (current-time)
+                                                (plist-get props :started))))
+                       (mins (truncate (/ elapsed 60))))
+                  (format "%s[%s %dm]" name status mins)))
+              dotfiles/hive-agents " | "))))
+
+;; Tab-bar segment showing hive agent count
+(defun dotfiles/hive-tab-bar-segment ()
+  "Return a string for the tab bar showing hive agent status."
+  (when dotfiles/hive-agents
+    (let ((running (cl-count-if
+                    (lambda (e) (eq (plist-get (cdr e) :status) 'running))
+                    dotfiles/hive-agents))
+          (done (cl-count-if
+                 (lambda (e) (eq (plist-get (cdr e) :status) 'done))
+                 dotfiles/hive-agents)))
+      (concat
+       (when (> running 0) (propertize (format " %d" running)
+                                        'face '(:foreground "#51afef")))
+       (when (> done 0) (propertize (format " %d" done)
+                                     'face '(:foreground "#98be65")))))))
+
+(with-eval-after-load 'tab-bar
+  (unless (memq 'dotfiles/hive-tab-bar-segment tab-bar-format)
+    (setq tab-bar-format
+          (append tab-bar-format '(dotfiles/hive-tab-bar-segment)))))
+
+;; Transient menu — deferred until transient loads (via magit / Elpaca)
+(with-eval-after-load 'transient
+  (transient-define-prefix dotfiles/hive-menu ()
+    "Claude Hive — agent multiplexer"
+    ["Spawn"
+     ("s" "Spawn agent" dotfiles/hive-spawn)
+     ("S" "Spawn with prompt" dotfiles/hive-spawn-with-prompt)]
+    ["Navigate"
+     ("a" "Switch to agent" dotfiles/hive-switch)
+     ("f" "Focus agent terminal" dotfiles/hive-focus)]
+    ["Inspect"
+     ("d" "Diff worktree" dotfiles/hive-diff)
+     ("l" "Log branch" dotfiles/hive-log)
+     ("?" "Status" dotfiles/hive-status)]
+    ["Cleanup"
+     ("k" "Clean agent" dotfiles/hive-clean)
+     ("K" "Clean all done" dotfiles/hive-clean-done)]))
+
+(defun dotfiles/hive-menu ()
+  "Open the hive transient menu, loading transient if needed."
+  (interactive)
+  (require 'transient)
+  (call-interactively #'dotfiles/hive-menu))
 
 (with-eval-after-load 'general
   (dotfiles/leader-def
     "g g" '(magit-status :which-key "magit status")
+    "g b" '(magit-blame-addition :which-key "blame")
+    "g l" '(magit-log-buffer-file :which-key "log file")
+    "g d" '(magit-diff-dwim :which-key "diff")
+    "g s" '(magit-stage-buffer-file :which-key "stage file")
+    "g S" '(magit-unstage-buffer-file :which-key "unstage file")
     "g p" '(magit-project-status :which-key "magit project")
+    "g r" '(diff-hl-revert-hunk :which-key "revert hunk")
     "p b" '(consult-project-buffer :which-key "project buffers")
+    "p c" '(project-compile :which-key "compile")
     "p d" '(project-dired :which-key "project dired")
+    "p e" '(project-eshell :which-key "eshell")
     "p f" '(project-find-file :which-key "project file")
+    "p k" '(project-kill-buffers :which-key "kill project buffers")
     "p p" '(project-switch-project :which-key "switch project")
     "p r" '(consult-ripgrep :which-key "project ripgrep")
-    "t t" '(dotfiles/open-terminal-here :which-key "eat terminal")
+    "p s" '(project-shell :which-key "shell")
+    "p x" '(project-async-shell-command :which-key "async command")
+    "A a" '(activities-resume :which-key "resume activity")
+    "A n" '(activities-new :which-key "new activity")
+    "A k" '(activities-kill :which-key "kill activity")
+    "A l" '(activities-list :which-key "list activities")
+    "A s" '(activities-suspend :which-key "suspend activity")
     "o t" '(dotfiles/open-terminal-here :which-key "terminal")
     "o d" '(project-dired :which-key "dired")
+    "a a" '(dotfiles/hive-menu :which-key "hive menu")
     "a c" '(dotfiles/claude-here :which-key "claude")
     "a x" '(dotfiles/claude-with-context :which-key "claude with context")
+    "a s" '(dotfiles/hive-spawn :which-key "hive spawn")
+    "a f" '(dotfiles/hive-switch :which-key "hive switch")
+    "a k" '(dotfiles/hive-clean :which-key "hive clean")
+    "a ?" '(dotfiles/hive-status :which-key "hive status")
     "q q" '(save-buffers-kill-emacs :which-key "quit emacs")
     "q r" '(restart-emacs :which-key "restart emacs")
     "q s" '(save-some-buffers :which-key "save buffers")))

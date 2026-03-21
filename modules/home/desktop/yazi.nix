@@ -90,6 +90,17 @@ in
           desc = "New tab with current directory";
         }
         {
+          on = ".";
+          run = "hidden toggle";
+          desc = "Toggle hidden files";
+        }
+        {
+          on = "!";
+          for = "unix";
+          run = "shell \"$SHELL\" --block";
+          desc = "Open shell here";
+        }
+        {
           on = "<A-1>";
           run = "tab_switch 0";
           desc = "Switch to tab 1";

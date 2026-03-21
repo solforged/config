@@ -1,7 +1,7 @@
 { config, pkgs, ... }:
 let
   cfg = config.platform;
-  secretsDir = "${cfg.user.home}/.local/state/platform/secrets";
+  secretsDir = cfg.secrets.stateDir;
 in
 {
   environment.systemPackages = [
@@ -27,6 +27,16 @@ in
         path = "${secretsDir}/git/allowed_signers";
         owner = cfg.user.name;
         mode = "0600";
+      };
+      "ssh/id_ed25519" = {
+        path = "${cfg.user.home}/.ssh/id_ed25519";
+        owner = cfg.user.name;
+        mode = "0600";
+      };
+      "ssh/id_ed25519_pub" = {
+        path = "${cfg.user.home}/.ssh/id_ed25519.pub";
+        owner = cfg.user.name;
+        mode = "0644";
       };
     };
   };

@@ -4,5 +4,6 @@
     ./env.nix
     ./git.nix
     ./ssh.nix
+    ./worktrunk.nix
   ];
 }
