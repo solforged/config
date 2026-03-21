@@ -21,6 +21,25 @@ require_command() {
   command -v "$1" >/dev/null 2>&1
 }
 
+# ── Xcode CLT ────────────────────────────────────────────────────────
+
+install_xcode_clt() {
+  if xcode-select -p >/dev/null 2>&1; then
+    info "Xcode CLT already installed"
+    return 0
+  fi
+
+  info "installing Xcode Command Line Tools (required for git)"
+  xcode-select --install 2>/dev/null || true
+
+  # Wait for the installer to finish — it runs as a separate GUI process
+  info "waiting for Xcode CLT installer to complete..."
+  until xcode-select -p >/dev/null 2>&1; do
+    sleep 5
+  done
+  info "Xcode CLT installed"
+}
+
 # ── Nix ──────────────────────────────────────────────────────────────
 
 install_nix() {
@@ -63,6 +82,7 @@ clone_config_repo() {
 host="${1:-}"
 [ -n "$host" ] || die "usage: bootstrap <host>"
 
+install_xcode_clt
 install_nix
 clone_config_repo
 
