@@ -5,3 +5,5 @@ result-*
 .direnv
 modules/local/identity.nix
 .nvimlog
+.worktrees
+.claude/worktrees

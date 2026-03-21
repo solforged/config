@@ -59,6 +59,8 @@ in
     JUPYTER_DATA_DIR = "${xdg.dataHome}/jupyter";
     KUBECONFIG = "${xdg.configHome}/kube/config";
     LESSHISTFILE = "${xdg.stateHome}/less/history";
+    NAVI_CONFIG = "${xdg.configHome}/navi/config.yaml";
+    NAVI_PATH = "${xdg.dataHome}/navi/cheats";
     NPM_CONFIG_CACHE = "${xdg.cacheHome}/npm";
     NPM_CONFIG_PREFIX = "${xdg.dataHome}/npm";
     NPM_CONFIG_USERCONFIG = "${xdg.configHome}/npm/npmrc";

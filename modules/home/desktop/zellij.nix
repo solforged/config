@@ -26,8 +26,8 @@ let
         pane size=1 borderless=true {
             plugin location="${zjstatusPluginPath}" {
                 format_left   "{mode} {tabs}"
-                format_center ""
-                format_right  "{pipe_zjstatus_hints}{datetime}#[bg=#cba6f7,fg=#1e1e2e,bold] {session} "
+                format_center "{pipe_zjstatus_hints}"
+                format_right  "{datetime}#[bg=#cba6f7,fg=#1e1e2e,bold] {session} "
                 format_space  ""
                 format_hide_on_overlength "true"
                 format_precedence "lrc"
@@ -57,6 +57,17 @@ let
                 mode_renamepane  "#[bg=#cba6f7,fg=#1e1e2e,bold]  RENAME PANE "
                 mode_session     "#[bg=#f38ba8,fg=#1e1e2e,bold]  SESSION "
                 mode_tmux        "#[bg=#cdd6f4,fg=#1e1e2e,bold]  TMUX "
+
+                mode_pane_format_center        "#[fg=#89b4fa,bold]h/j/k/l#[fg=#6c7086] Navigate  #[fg=#89b4fa,bold]n#[fg=#6c7086] New  #[fg=#89b4fa,bold]v#[fg=#6c7086] Right  #[fg=#89b4fa,bold]b#[fg=#6c7086] Below  #[fg=#89b4fa,bold]x#[fg=#6c7086] Close  #[fg=#89b4fa,bold]f#[fg=#6c7086] Full  #[fg=#89b4fa,bold]w#[fg=#6c7086] Float  #[fg=#89b4fa,bold]r#[fg=#6c7086] Rename  #[fg=#89b4fa,bold]t#[fg=#6c7086] Break"
+                mode_tab_format_center         "#[fg=#b4befe,bold]h/l#[fg=#6c7086] Prev/Next  #[fg=#b4befe,bold]n#[fg=#6c7086] New  #[fg=#b4befe,bold]x#[fg=#6c7086] Close  #[fg=#b4befe,bold]r#[fg=#6c7086] Rename  #[fg=#b4befe,bold]s#[fg=#6c7086] Sync  #[fg=#b4befe,bold]H/L#[fg=#6c7086] Move  #[fg=#b4befe,bold]1-9#[fg=#6c7086] Jump"
+                mode_resize_format_center      "#[fg=#f38ba8,bold]h/j/k/l#[fg=#6c7086] Grow  #[fg=#f38ba8,bold]H/J/K/L#[fg=#6c7086] Shrink  #[fg=#f38ba8,bold]=/−#[fg=#6c7086] All"
+                mode_move_format_center        "#[fg=#94e2d5,bold]h/j/k/l#[fg=#6c7086] Move pane"
+                mode_scroll_format_center      "#[fg=#cdd6f4,bold]j/k#[fg=#6c7086] Scroll  #[fg=#cdd6f4,bold]d/u#[fg=#6c7086] Half-page  #[fg=#cdd6f4,bold]f/b#[fg=#6c7086] Full  #[fg=#cdd6f4,bold]e#[fg=#6c7086] Edit  #[fg=#cdd6f4,bold]/#[fg=#6c7086] Search"
+                mode_search_format_center      "#[fg=#f9e2af,bold]j/k#[fg=#6c7086] Scroll  #[fg=#f9e2af,bold]n/N#[fg=#6c7086] Next/Prev  #[fg=#f9e2af,bold]c#[fg=#6c7086] Case  #[fg=#f9e2af,bold]w#[fg=#6c7086] Wrap  #[fg=#f9e2af,bold]o#[fg=#6c7086] Word"
+                mode_session_format_center     "#[fg=#f38ba8,bold]d#[fg=#6c7086] Detach  #[fg=#f38ba8,bold]w#[fg=#6c7086] Sessions  #[fg=#f38ba8,bold]c#[fg=#6c7086] Config  #[fg=#f38ba8,bold]p#[fg=#6c7086] Plugins  #[fg=#f38ba8,bold]a#[fg=#6c7086] About"
+                mode_entersearch_format_center "#[fg=#6c7086]Type to search · Enter confirm · Esc cancel"
+                mode_renametab_format_center   "#[fg=#6c7086]Type new name · Enter confirm · Esc cancel"
+                mode_renamepane_format_center  "#[fg=#6c7086]Type new name · Enter confirm · Esc cancel"
 
                 tab_active              "#[bg=#cba6f7,fg=#1e1e2e,bold] {index} {name} "
                 tab_active_fullscreen   "#[bg=#cba6f7,fg=#1e1e2e,bold] {fullscreen_indicator} {index} {name} "
@@ -178,10 +189,31 @@ in
                 bind "Alt 7" { GoToTab 7; }
                 bind "Alt 8" { GoToTab 8; }
                 bind "Alt 9" { GoToTab 9; }
-                bind "Alt ?" {
+                bind "Alt Shift /" {
                     LaunchOrFocusPlugin "zj-forgot" {
                         floating true
                         move_to_focused_tab true
+                        "Alt h/j/k/l"       "Navigate panes"
+                        "Alt ,/."            "Previous/next tab"
+                        "Alt 1-9"            "Jump to tab N"
+                        "Alt n"              "New pane"
+                        "Alt Shift n"        "New stacked pane"
+                        "Alt v / Alt b"      "New pane right / below"
+                        "Alt x"              "Close pane"
+                        "Alt f"              "Toggle fullscreen"
+                        "Alt w"              "Toggle floating"
+                        "Alt e"              "Toggle embed/float"
+                        "Alt i"              "Toggle pinned"
+                        "Alt p"              "Pane mode"
+                        "Alt t"              "Tab mode"
+                        "Alt r"              "Resize mode"
+                        "Alt s"              "Scroll mode"
+                        "Alt m"              "Move mode"
+                        "Alt o"              "Session mode"
+                        "Alt /"              "Search"
+                        "Alt Shift /"        "This cheat sheet"
+                        "Alt [ / Esc"        "Return to locked"
+                        "Ctrl q"             "Quit (confirm)"
                     }
                 }
                 bind "Ctrl q" {
@@ -334,7 +366,6 @@ in
             shared_except "locked" {
                 bind "Alt [" { SwitchToMode "locked"; }
                 bind "Esc" { SwitchToMode "locked"; }
-                bind "Enter" { SwitchToMode "locked"; }
                 bind "Alt ," { GoToPreviousTab; }
                 bind "Alt ." { GoToNextTab; }
                 bind "Alt 1" { GoToTab 1; }
@@ -353,10 +384,31 @@ in
                 bind "Alt /" { SwitchToMode "EnterSearch"; SearchInput 0; }
                 bind "Alt o" { SwitchToMode "session"; }
                 bind "Alt m" { SwitchToMode "move"; }
-                bind "Alt ?" {
+                bind "Alt Shift /" {
                     LaunchOrFocusPlugin "zj-forgot" {
                         floating true
                         move_to_focused_tab true
+                        "Alt h/j/k/l"       "Navigate panes"
+                        "Alt ,/."            "Previous/next tab"
+                        "Alt 1-9"            "Jump to tab N"
+                        "Alt n"              "New pane"
+                        "Alt Shift n"        "New stacked pane"
+                        "Alt v / Alt b"      "New pane right / below"
+                        "Alt x"              "Close pane"
+                        "Alt f"              "Toggle fullscreen"
+                        "Alt w"              "Toggle floating"
+                        "Alt e"              "Toggle embed/float"
+                        "Alt i"              "Toggle pinned"
+                        "Alt p"              "Pane mode"
+                        "Alt t"              "Tab mode"
+                        "Alt r"              "Resize mode"
+                        "Alt s"              "Scroll mode"
+                        "Alt m"              "Move mode"
+                        "Alt o"              "Session mode"
+                        "Alt /"              "Search"
+                        "Alt Shift /"        "This cheat sheet"
+                        "Alt [ / Esc"        "Return to locked"
+                        "Ctrl q"             "Quit (confirm)"
                     }
                 }
                 bind "Ctrl q" {

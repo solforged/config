@@ -13,19 +13,30 @@ in
 
   config = lib.mkIf cfg.profiles.base.enable {
     platform.packages.home = with pkgs; [
+      bottom
       chafa
+      cheat
+      choose
       difftastic
+      doggo
+      duf
+      dust
       fd
       ffmpeg
+      gping
       imagemagick
       lazygit
+      navi
       nil
       nixfmt-rfc-style
       p7zip
       poppler
+      procs
       ripgrep
       rsync
+      sd
       tealdeer
+      xh
     ];
   };
 }

@@ -23,7 +23,12 @@ in
   };
 
   home-manager.users.${cfg.user.name} =
-    { config, lib, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     {
       imports = [
         inputs.nixvim.homeModules.nixvim
@@ -73,6 +78,36 @@ in
 
       home.activation.ensureCodexHome = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         /bin/mkdir -p "${config.xdg.dataHome}/codex"
+      '';
+
+      home.activation.ensureCheatPaths = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        /bin/mkdir -p "${config.xdg.configHome}/cheat/cheatsheets/personal"
+        community="${config.xdg.configHome}/cheat/cheatsheets/community"
+        if [ ! -d "$community" ]; then
+          ${lib.getExe pkgs.git} clone --depth 1 \
+            https://github.com/cheat/cheatsheets.git "$community" 2>/dev/null \
+            || /bin/mkdir -p "$community"
+        fi
+      '';
+
+      home.activation.ensureNaviCheatsDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        /bin/mkdir -p "${config.xdg.dataHome}/navi/cheats"
+      '';
+
+      xdg.configFile."cheat/conf.yml".text = ''
+        ---
+        colorize: true
+        style: monokai
+        formatter: terminal16m
+        cheatpaths:
+          - name: community
+            path: ${config.xdg.configHome}/cheat/cheatsheets/community
+            tags: [ community ]
+            readonly: true
+          - name: personal
+            path: ${config.xdg.configHome}/cheat/cheatsheets/personal
+            tags: [ personal ]
+            readonly: false
       '';
 
       home.file.".hushlogin".text = "";

@@ -124,6 +124,7 @@ in
 
     platform.packages.home = with pkgs; [
       aider-chat
+      bandwhich
       codex
       inputs.worktrunk.packages.${cfg.host.platform}.default
       cargo
@@ -135,6 +136,8 @@ in
       git-branchless
       go
       gopls
+      grex
+      hyperfine
       memo
       nodejs
       nodePackages.typescript
@@ -146,10 +149,12 @@ in
       (lib.hiPrio python3)
       resvg
       ruff
+      tokei
       uv
       rust-analyzer
       rustc
       rustfmt
+      watchexec
     ];
 
     platform.homebrew.casks =
