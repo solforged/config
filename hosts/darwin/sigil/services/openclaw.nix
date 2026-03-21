@@ -3,35 +3,47 @@
   lib,
   osConfig,
   pkgs,
-  self,
   ...
 }:
 let
   cfg = osConfig.platform;
-  documentsDir = builtins.path {
-    path = self.outPath + "/hosts/darwin/sigil/openclaw/documents";
-    name = "openclaw-documents";
-  };
+  documentsDir = pkgs.runCommandLocal "openclaw-documents-placeholder" { } ''
+    mkdir -p "$out"
+
+    cat <<'EOF' > "$out/AGENTS.md"
+    # AGENTS.md
+
+    OpenClaw bootstrap instructions are intentionally not shipped in this public repository.
+    Provide machine-local or private workspace guidance separately.
+    EOF
+
+    cat <<'EOF' > "$out/SOUL.md"
+    # SOUL.md
+
+    No public persona baseline is committed here.
+    Load private instructions outside this repository if needed.
+    EOF
+
+    cat <<'EOF' > "$out/TOOLS.md"
+    # TOOLS.md
+
+    No repository-managed OpenClaw tool guidance is provided here.
+    Configure any required tool policy outside this public configuration.
+    EOF
+
+    cat <<'EOF' > "$out/IDENTITY.md"
+    # IDENTITY.md
+
+    No public identity prompt is committed here.
+    Use private or machine-local instructions when an identity document is required.
+    EOF
+  '';
   openclawStateDir = "${config.xdg.stateHome}/openclaw";
   openclawOAuthDir = "${openclawStateDir}/credentials";
   openclawWorkspaceDir = "${config.xdg.dataHome}/openclaw/workspace";
-  installBin = lib.getExe' pkgs.coreutils "install";
   mktempBin = lib.getExe' pkgs.coreutils "mktemp";
   pythonBin = lib.getExe pkgs.python3;
   secretsDir = cfg.secrets.stateDir;
-  bootstrapDocNames = [
-    "AGENTS.md"
-    "SOUL.md"
-    "TOOLS.md"
-    "IDENTITY.md"
-  ];
-  bootstrapDocRelPath = name: ".local/share/openclaw/workspace/${name}";
-  bootstrapDocSources = builtins.listToAttrs (
-    map (name: {
-      inherit name;
-      value = config.home.file."${bootstrapDocRelPath name}".source;
-    }) bootstrapDocNames
-  );
   tailscaleBin = lib.getExe' pkgs.tailscale "tailscale";
   tailscaleHostName = cfg.host.slug;
   openclawBaseConfig = {
@@ -146,10 +158,6 @@ in
   home.activation.openclawConfigFiles = lib.mkForce (lib.hm.dag.entryAfter [ "openclawDirs" ] "");
   home.activation.openclawDocumentGuard = lib.mkForce (lib.hm.dag.entryBefore [ "writeBoundary" ] "");
 
-  home.file = lib.genAttrs (map bootstrapDocRelPath bootstrapDocNames) (_: {
-    enable = lib.mkForce false;
-  });
-
   home.sessionVariables = {
     OPENCLAW_STATE_DIR = openclawStateDir;
     OPENCLAW_CONFIG_PATH = "${openclawStateDir}/openclaw.json";
@@ -162,6 +170,10 @@ in
     /bin/chmod 700 "${openclawOAuthDir}"
   '';
 
+  home.activation.ensureOpenclawWorkspaceDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    /bin/mkdir -p "${openclawWorkspaceDir}"
+  '';
+
   home.activation.ensureOpenclawTailscaleHostname = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     if "${tailscaleBin}" status --json >/dev/null 2>&1; then
       if ! "${tailscaleBin}" set --hostname "${tailscaleHostName}" >/dev/null 2>&1; then
@@ -170,20 +182,6 @@ in
     else
       /bin/echo "warning: Tailscale is not connected; start the app and run 'tailscale set --hostname ${tailscaleHostName}' before using OpenClaw remotely." >&2
     fi
-  '';
-
-  home.activation.materializeOpenclawBootstrapDocs = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
-    /bin/mkdir -p "${openclawWorkspaceDir}"
-
-    # OpenClaw rejects workspace symlinks that resolve outside the workspace
-    # root, so materialize the Nix-generated bootstrap docs as plain files
-    # after Home Manager finishes its normal link step.
-    ${lib.concatStringsSep "\n" (
-      map (name: ''
-        run rm -f "${openclawWorkspaceDir}/${name}"
-        "${installBin}" -m 0644 "${bootstrapDocSources.${name}}" "${openclawWorkspaceDir}/${name}"
-      '') bootstrapDocNames
-    )}
   '';
 
   programs.zsh.shellAliases = {
