@@ -15,7 +15,8 @@
         "helix"
       ];
       terminal = "ghostty";
-      browser = "brave";
+      browser = "chrome";
+      notes = "obsidian";
       passwordManager = "1password";
     };
 
@@ -24,11 +25,12 @@
       dock.enable = true;
       dock.items = [
         "Apps"
-        "Brave Browser"
+        "Google Chrome"
         "Ghostty"
         "Signal"
         "1Password"
         "App Store"
+        "Obsidian"
         "Claude"
         "System Settings"
       ];

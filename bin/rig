@@ -736,7 +736,8 @@ host_kind() {
     return 0
   fi
 
-  die "unknown host: $host"
+  available="$(list_hosts | paste -sd', ' -)"
+  die "unknown host: $host (available: $available)"
 }
 
 host_profile_file() {
@@ -771,6 +772,13 @@ host_has_profile() {
   profile_file="$(host_profile_file "$host")"
   grep -q "${profile}\.enable[[:space:]]*=[[:space:]]*true" "$profile_file" ||
     grep -Eq "^[[:space:]]*\"$profile\"[[:space:]]*$" "$profile_file"
+}
+
+host_has_feature() {
+  host="$1"
+  feature="$2"
+  profile_file="$(host_profile_file "$host")"
+  grep -q "${feature}\.enable[[:space:]]*=[[:space:]]*true" "$profile_file"
 }
 
 resolve_host_arg() {
@@ -919,6 +927,13 @@ run_activation() {
     sudo -v
   fi
 
+  # Determinate Nix installer may leave /etc/nix/nix.custom.conf which
+  # nix-darwin refuses to overwrite. Move it aside before building.
+  if [ "$kind" = "darwin" ] && [ -f /etc/nix/nix.custom.conf ]; then
+    printf '%s\n' "moving /etc/nix/nix.custom.conf aside for nix-darwin" >&2
+    sudo mv /etc/nix/nix.custom.conf /etc/nix/nix.custom.conf.before-nix-darwin
+  fi
+
   if [ "$update_inputs" -eq 1 ]; then
     run_phase "Updating flake inputs" "Updated flake inputs" \
       nix_cmd flake update
@@ -995,12 +1010,62 @@ parse_deploy_args() {
   DEPLOY_UPDATE="$deploy_update"
 }
 
+ensure_identity() {
+  identity_file="$repo_root/modules/local/identity.nix"
+  [ -f "$identity_file" ] && return 0
+
+  if ! has_terminal; then
+    printf '%s\n' "warning: modules/local/identity.nix not found; git identity will not be configured" >&2
+    return 0
+  fi
+
+  printf '\n' >&2
+  printf '%s\n' "No local identity file found. This sets your git name and email." >&2
+  printf '%s\n' "You can skip this and create modules/local/identity.nix later." >&2
+  printf '\n' >&2
+
+  printf '%s' "Full name (leave blank to skip): " >&2
+  if [ -r /dev/tty ]; then
+    IFS= read -r id_name </dev/tty
+  else
+    IFS= read -r id_name
+  fi
+
+  if [ -z "$id_name" ]; then
+    printf '%s\n' "skipping identity setup" >&2
+    return 0
+  fi
+
+  printf '%s' "Email: " >&2
+  if [ -r /dev/tty ]; then
+    IFS= read -r id_email </dev/tty
+  else
+    IFS= read -r id_email
+  fi
+
+  if [ -z "$id_email" ]; then
+    printf '%s\n' "skipping identity setup" >&2
+    return 0
+  fi
+
+  cat > "$identity_file" <<IDENTITY
+{ ... }:
+{
+  platform.user = {
+    fullName = "$id_name";
+    email = "$id_email";
+  };
+}
+IDENTITY
+  printf '%s\n' "wrote $identity_file" >&2
+}
+
 ensure_age_key() {
   key_file="$(age_key_file)"
   [ -f "$key_file" ] && return 0
 
   encrypted="$repo_root/secrets/age-key.age"
-  [ -f "$encrypted" ] || die "age-key.age not found in secrets/; see README"
+  [ -f "$encrypted" ] || die "secrets/age-key.age not found; copy it from an existing machine or restore from backup"
 
   mkdir -p "$(dirname "$key_file")"
   if command -v age >/dev/null 2>&1; then
@@ -1025,16 +1090,11 @@ do_bootstrap() {
   require_command sudo
   ensure_not_root
   install_nix
-  if ! host_has_profile "$host" work; then
+  if [ "$kind" = "darwin" ] && host_has_feature "$host" homebrew; then
     install_homebrew
   fi
 
-  # Determinate Nix installer may leave /etc/nix/nix.custom.conf which
-  # nix-darwin refuses to overwrite. Rename it out of the way on first run.
-  if [ -f /etc/nix/nix.custom.conf ]; then
-    printf '%s\n' "moving /etc/nix/nix.custom.conf aside for nix-darwin" >&2
-    sudo mv /etc/nix/nix.custom.conf /etc/nix/nix.custom.conf.before-nix-darwin
-  fi
+  ensure_identity
 
   cd "$repo_root"
   run_activation "$host" "$kind" 0
