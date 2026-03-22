@@ -81,6 +81,12 @@ Secrets are managed by **sops-nix** with age encryption. The age key lives at `~
 
 All Nix files use `nixfmt-rfc-style` (the flake's formatter). Run `rig fmt` before committing.
 
+## Nix gotchas
+
+- Always `git add` new files before building — Nix flakes ignore untracked files.
+- Validate changes with `rig build` or `rig check` before committing.
+- Tools may be available via the Nix store even if they're not on `$PATH` directly. Check `which`, `nix profile list`, or the flake's package set before concluding something isn't installed.
+
 ## Commit style
 
 Commits use a `domain: lowercase description` format where the domain is the feature area being changed — not conventional-commits types. Examples from history:
@@ -97,6 +103,16 @@ darwin: add hyperion and refine host defaults
 ```
 
 Use an established domain from the repo history when one fits. Keep the description concise — one line, no bullet lists.
+
+## Git workflow
+
+- When rebasing or rewriting history, preserve original commit timestamps (`GIT_COMMITTER_DATE`) and SSH/GPG signatures.
+- Sandbox restrictions can interfere with git signing, rebasing, and worktree operations. If a git operation fails with permission errors, retry with sandbox disabled.
+- Before starting a history rewrite, check the current branch state and signing config to avoid mid-rebase failures.
+
+## Branch targeting
+
+Before making changes that span multiple files or repos, confirm the target branch and file locations. Misplacing work (wrong repo, wrong branch, wrong config file) is costly to revert.
 
 ## Adding a new host
 
