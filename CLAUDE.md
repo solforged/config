@@ -120,6 +120,10 @@ Before making changes that span multiple files or repos, confirm the target bran
 2. Create `hosts/darwin/<name>/preferences.nix` to enable profiles and set `platform.apps`
 3. The host is auto-discovered by `lib/default.nix` — no flake.nix edits needed
 
+## Workflow
+
+After modifying modules, run `rig check` to verify all hosts evaluate cleanly. For worktree branches, run `rig build` before merging.
+
 ## Local overrides (not in repo)
 
 The system creates `~/.config/nix-darwin/README.md` listing local override paths:

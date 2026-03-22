@@ -144,6 +144,20 @@ in
         '';
     };
 
+    home.file.".local/bin/claude-oauth-token" = {
+      executable = true;
+      text =
+        let
+          jq = lib.getExe pkgs.jq;
+        in
+        ''
+          #!/bin/sh
+          set -eu
+          security find-generic-password -s "Claude Code-credentials" -w \
+            | ${jq} -r '.claudeAiOauth.accessToken'
+        '';
+    };
+
     home.file.".local/bin/openclaw-remote" = {
       executable = true;
       text = ''

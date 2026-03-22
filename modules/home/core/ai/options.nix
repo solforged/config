@@ -55,6 +55,12 @@ in
       description = "Claude Code package to install. Null disables the default (e.g. when an external HM module provides it).";
     };
 
+    claude.bypassPermissions = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Skip all permission prompts (including shell-operator heuristics). Only enable in sandboxed/container environments.";
+    };
+
     claude.settings = mkOption {
       type = types.attrsOf types.anything;
       default = { };

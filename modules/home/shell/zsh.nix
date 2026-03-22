@@ -160,6 +160,35 @@ in
           fi
         '')
 
+        (lib.mkOrder 600 ''
+          # --- keybindings ---
+          bindkey -e
+
+          # word navigation
+          bindkey '^[[1;5C' forward-word         # Ctrl+Right
+          bindkey '^[[1;5D' backward-word        # Ctrl+Left
+          bindkey '^[[1;3C' forward-word         # Alt+Right  (also partial-accepts autosuggestion)
+          bindkey '^[[1;3D' backward-word        # Alt+Left
+
+          # home / end
+          bindkey '^[[H' beginning-of-line
+          bindkey '^[[F' end-of-line
+
+          # word deletion
+          bindkey '^[[3;5~' kill-word            # Ctrl+Delete
+          bindkey '^[^?' backward-kill-word      # Alt+Backspace
+
+          # edit command line in $EDITOR (Ctrl+X Ctrl+E)
+          autoload -U edit-command-line
+          zle -N edit-command-line
+          bindkey '^X^E' edit-command-line
+
+          # Ctrl+Z toggle — press again to foreground suspended job
+          _zsh-fg() { fg 2>/dev/null; zle redisplay; }
+          zle -N _zsh-fg
+          bindkey '^Z' _zsh-fg
+        '')
+
         (lib.mkOrder 1000 ''
           if (( $+commands[eza] )); then
             alias ls='eza --classify=always --group-directories-first --icons=auto'
