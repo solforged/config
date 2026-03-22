@@ -101,6 +101,11 @@
           mode = "n";
         }
         {
+          __unkeyed-1 = "<leader>b";
+          group = "Buffer";
+          mode = "n";
+        }
+        {
           __unkeyed-1 = "<leader>x";
           group = "Diagnostics";
           mode = "n";
