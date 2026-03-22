@@ -79,51 +79,50 @@ in
           max_results = 200;
         };
       };
-      shellAliases =
-        {
-          e = editorCommand;
-          g = "git";
-          ga = "git add";
-          gb = "git branch";
-          gc = "git commit";
-          gcfg = "git config";
-          gg = "lazygit";
-          gl = "git log --oneline --decorate --graph";
-          gp = "git push";
-          gs = "git status -sb";
-          lg = "lazygit";
-          l = "eza --all --binary --classify=always --git --group-directories-first --header --icons=auto --long";
-          la = "eza --all --binary --classify=always --git --group-directories-first --icons=auto --long";
-          ll = "eza --binary --classify=always --git --group-directories-first --icons=auto --long";
-          lla = "eza --all --binary --classify=always --git --group-directories-first --icons=auto --long";
-          llm = "eza --all --classify=always --git --group-directories-first --header --icons=auto --long --sort=modified";
-          ls = "eza --classify=always --group-directories-first --icons=auto";
-          lS = "eza --classify=always --group-directories-first --icons=auto --oneline";
-          lt = "eza --classify=always --icons=auto --level=2 --tree";
-          ltr = "eza --binary --classify=always --git --group-directories-first --icons=auto --long --sort=modified --treat-dirs-as-files";
-          lx = "eza --accessed --all --binary --blocksize --classify=always --color-scale=all --created --extended --git --group --group-directories-first --header --icons=auto --inode --links --long --modified";
-          md = "mkdir -p";
-          nk = builtins.toString nvimHelp;
-          oc = "openclaw";
-          rb = "rig build";
-          rc = "rig check";
-          rd = "rig deploy";
-          rdu = "rig deploy --update";
-          rf = "rig fmt";
-          rsp = "rig secrets pull";
-          rss = "rig secrets scan";
-          zj = "zellij";
-          zja = "zellij attach -c";
-          zjl = "zellij list-sessions";
-          zp = builtins.toString projectSession;
-          "ghostty-keys" = builtins.toString ghosttyKeys;
-          "nvim-help" = builtins.toString nvimHelp;
-          "project-session" = builtins.toString projectSession;
-        }
-        // lib.optionalAttrs cfg.profiles.work.enable {
-          zw = builtins.toString workSession;
-          "work-session" = builtins.toString workSession;
-        };
+      shellAliases = {
+        e = editorCommand;
+        g = "git";
+        ga = "git add";
+        gb = "git branch";
+        gc = "git commit";
+        gcfg = "git config";
+        gg = "lazygit";
+        gl = "git log --oneline --decorate --graph";
+        gp = "git push";
+        gs = "git status -sb";
+        lg = "lazygit";
+        l = "eza --all --binary --classify=always --git --group-directories-first --header --icons=auto --long";
+        la = "eza --all --binary --classify=always --git --group-directories-first --icons=auto --long";
+        ll = "eza --binary --classify=always --git --group-directories-first --icons=auto --long";
+        lla = "eza --all --binary --classify=always --git --group-directories-first --icons=auto --long";
+        llm = "eza --all --classify=always --git --group-directories-first --header --icons=auto --long --sort=modified";
+        ls = "eza --classify=always --group-directories-first --icons=auto";
+        lS = "eza --classify=always --group-directories-first --icons=auto --oneline";
+        lt = "eza --classify=always --icons=auto --level=2 --tree";
+        ltr = "eza --binary --classify=always --git --group-directories-first --icons=auto --long --sort=modified --treat-dirs-as-files";
+        lx = "eza --accessed --all --binary --blocksize --classify=always --color-scale=all --created --extended --git --group --group-directories-first --header --icons=auto --inode --links --long --modified";
+        md = "mkdir -p";
+        nk = builtins.toString nvimHelp;
+        oc = "openclaw";
+        rb = "rig build";
+        rc = "rig check";
+        rd = "rig deploy";
+        rdu = "rig deploy --update";
+        rf = "rig fmt";
+        rsp = "rig secrets pull";
+        rss = "rig secrets scan";
+        zj = "zellij";
+        zja = "zellij attach -c";
+        zjl = "zellij list-sessions";
+        zp = builtins.toString projectSession;
+        "ghostty-keys" = builtins.toString ghosttyKeys;
+        "nvim-help" = builtins.toString nvimHelp;
+        "project-session" = builtins.toString projectSession;
+      }
+      // lib.optionalAttrs cfg.profiles.work.enable {
+        zw = builtins.toString workSession;
+        "work-session" = builtins.toString workSession;
+      };
       extraConfig = ''
         def --env cache [] {
           cd $env.XDG_CACHE_HOME

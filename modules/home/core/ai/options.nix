@@ -20,6 +20,28 @@ in
       description = "Path to a file containing the remote OpenClaw hostname, resolved at helper runtime.";
     };
 
+    lumen = {
+      enable = mkEnableOption "lumen AI commit message drafting";
+
+      package = mkOption {
+        type = types.nullOr types.package;
+        default = null;
+        description = "Lumen package to install. Set by the profile that enables lumen.";
+      };
+
+      provider = mkOption {
+        type = types.str;
+        default = "groq";
+        description = "AI provider for lumen (groq, openai, claude, ollama, etc.).";
+      };
+
+      model = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Model override for lumen. Null uses the provider's default.";
+      };
+    };
+
     claude.package = mkOption {
       type = types.nullOr types.package;
       default = null;
