@@ -26,6 +26,24 @@
     }
     {
       mode = "n";
+      key = "<leader>gd";
+      action = "<cmd>DiffviewOpen<CR>";
+      options.desc = "Diff working tree";
+    }
+    {
+      mode = "n";
+      key = "<leader>gD";
+      action = "<cmd>DiffviewClose<CR>";
+      options.desc = "Close diffview";
+    }
+    {
+      mode = "n";
+      key = "<leader>gh";
+      action = "<cmd>DiffviewFileHistory %<CR>";
+      options.desc = "File history";
+    }
+    {
+      mode = "n";
       key = "<leader>xx";
       action = "<cmd>Trouble diagnostics toggle<CR>";
       options.desc = "Diagnostics";
@@ -51,8 +69,10 @@
   ];
 
   plugins = {
+    diffview.enable = true;
     gitsigns.enable = true;
     lazygit.enable = true;
+    nvim-bqf.enable = true;
     todo-comments = {
       enable = true;
       keymaps = {
