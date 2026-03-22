@@ -104,6 +104,23 @@ in
       '';
     };
 
+    home.file.".local/bin/claude-hook-nixfmt" = {
+      executable = true;
+      text =
+        let
+          jq = lib.getExe pkgs.jq;
+          nixfmt = lib.getExe pkgs.nixfmt-rfc-style;
+        in
+        ''
+          #!/bin/sh
+          f="$(${jq} -r '.tool_input.file_path // empty')"
+          case "$f" in
+            *.nix) ${nixfmt} "$f" 2>/dev/null || true ;;
+          esac
+          exit 0
+        '';
+    };
+
     home.file.".local/bin/openclaw-remote" = {
       executable = true;
       text = ''

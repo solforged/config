@@ -407,6 +407,23 @@ in
               tab name="scratch"
           }
         '';
+      }
+      // lib.optionalAttrs cfg.profiles.development.enable {
+        agent = ''
+          layout {
+              ${defaultTabTemplate}
+              tab name="agent" focus=true {
+                  pane split_direction="Vertical" {
+                      pane size="60%"
+                      pane size="40%" split_direction="Horizontal" {
+                          pane
+                          pane size="30%"
+                      }
+                  }
+              }
+              tab name="edit"
+          }
+        '';
       };
     };
   };

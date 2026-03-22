@@ -114,6 +114,9 @@ in
       }
       // lib.optionalAttrs cfg.profiles.work.enable {
         zw = "work-session";
+      }
+      // lib.optionalAttrs cfg.profiles.development.enable {
+        za = "agent-session";
       };
 
       zsh-abbr = {
@@ -233,6 +236,36 @@ in
                 exec zellij attach "$session"
               else
                 exec zellij --session "$session" --layout work
+              fi
+            }
+          ''}
+
+          ${lib.optionalString cfg.profiles.development.enable ''
+            agent-session() {
+              local root session
+
+              if root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+                :
+              else
+                root="$PWD"
+              fi
+
+              session="$(basename "$root" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '-')"
+              session="''${session#-}"
+              session="''${session%-}"
+
+              if [[ -z "$session" ]]; then
+                session="shell"
+              fi
+
+              session="agent-$session"
+
+              cd "$root" || return
+
+              if zellij list-sessions --short 2>/dev/null | grep -Fxq "$session"; then
+                exec zellij attach "$session"
+              else
+                exec zellij --session "$session" --layout agent
               fi
             }
           ''}

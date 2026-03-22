@@ -27,6 +27,19 @@ in
           };
         };
       };
+      hooks = {
+        PostToolUse = [
+          {
+            matcher = "Edit|Write";
+            hooks = [
+              {
+                type = "command";
+                command = "~/.local/bin/claude-hook-nixfmt";
+              }
+            ];
+          }
+        ];
+      };
       permissions = {
         allow = [
           # Built-in read-only tools
