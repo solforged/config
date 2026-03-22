@@ -32,6 +32,8 @@ in
 {
   home.sessionPath = [
     "${homeDirectory}/.local/bin"
+    "${xdg.dataHome}/cargo/bin"
+    "${xdg.dataHome}/npm/bin"
   ]
   ++ lib.optionals isDarwin [
     "${homebrewPrefix}/bin"

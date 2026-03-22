@@ -114,10 +114,13 @@
           timeout_ms = 500;
         };
         formatters_by_ft = {
-          nix = [ "nixfmt" ];
+          css = [ "prettier" ];
           go = [ "gofmt" ];
+          html = [ "prettier" ];
           javascript = [ "prettier" ];
           javascriptreact = [ "prettier" ];
+          json = [ "prettier" ];
+          nix = [ "nixfmt" ];
           python = [ "ruff_format" ];
           rust = [ "rustfmt" ];
           typescript = [ "prettier" ];
@@ -131,7 +134,11 @@
       enable = true;
       servers = {
         bashls.enable = true;
+        cssls.enable = true;
+        eslint.enable = true;
         gopls.enable = true;
+        html.enable = true;
+        jsonls.enable = true;
         pyright.enable = true;
         ruff.enable = true;
         lua_ls.enable = true;

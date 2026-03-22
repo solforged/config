@@ -127,7 +127,11 @@ in
       bandwhich
       codex
       inputs.worktrunk.packages.${cfg.host.platform}.default
+      bacon
       cargo
+      cargo-audit
+      cargo-expand
+      cargo-nextest
       clippy
       delve
       gemini-cli
@@ -140,11 +144,13 @@ in
       hyperfine
       memo
       nodejs
+      nodePackages.eslint
       nodePackages.typescript
       nodePackages.typescript-language-server
       nodePackages.prettier
       pnpm
       python3Packages.ipython
+      vscode-langservers-extracted
       pyright
       (lib.hiPrio python3)
       resvg

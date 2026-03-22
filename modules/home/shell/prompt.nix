@@ -19,6 +19,7 @@ in
         "$git_status"
         "$nodejs"
         "$python"
+        "$rust"
         "$cmd_duration"
         "$line_break"
         "$character"
@@ -97,6 +98,12 @@ in
         format = "via $symbol[$version( \\($virtualenv\\))]($style) ";
         style = "bold yellow";
         symbol = "[](bold green) ";
+      };
+
+      rust = {
+        format = "via $symbol[$version]($style) ";
+        style = "bold red";
+        symbol = "[](bold red) ";
       };
 
       nix_shell = {
