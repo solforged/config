@@ -15,6 +15,8 @@ in
 
   config = lib.mkIf cfg.profiles.development.enable {
     platform.ai.enable = true;
+    platform.ai.lumen.enable = true;
+    platform.ai.lumen.package = inputs.lumen.packages.${cfg.host.platform}.default;
 
     platform.ai.claude.settings = {
       extraKnownMarketplaces = {
@@ -108,6 +110,7 @@ in
     platform.ai.claude.package = inputs.claude-code-nix.packages.${cfg.host.platform}.claude-code-bun;
 
     platform.packages.home = with pkgs; [
+      aider-chat
       codex
       inputs.worktrunk.packages.${cfg.host.platform}.default
       cargo
@@ -115,6 +118,8 @@ in
       delve
       gemini-cli
       gh
+      git-absorb
+      git-branchless
       go
       gopls
       memo

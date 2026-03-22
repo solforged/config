@@ -21,10 +21,20 @@ let
       pwd
     }
   '';
+  lumenConfig = {
+    provider = aiCfg.lumen.provider;
+  }
+  // lib.optionalAttrs (aiCfg.lumen.model != null) { model = aiCfg.lumen.model; };
 in
 {
   config = lib.mkIf aiCfg.enable {
-    home.packages = lib.optional (aiCfg.claude.package != null) aiCfg.claude.package;
+    home.packages =
+      lib.optional (aiCfg.claude.package != null) aiCfg.claude.package
+      ++ lib.optional (aiCfg.lumen.enable && aiCfg.lumen.package != null) aiCfg.lumen.package;
+
+    xdg.configFile."lumen/lumen.config.json" = lib.mkIf aiCfg.lumen.enable {
+      text = builtins.toJSON lumenConfig;
+    };
 
     programs.zsh.shellAliases = lib.mkIf (aiCfg.claude.package != null) {
       claude = "claude-bun";

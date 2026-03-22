@@ -14,6 +14,7 @@ in
   config = lib.mkIf cfg.profiles.base.enable {
     platform.packages.home = with pkgs; [
       chafa
+      difftastic
       fd
       ffmpeg
       imagemagick
