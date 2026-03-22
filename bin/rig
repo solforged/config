@@ -111,9 +111,11 @@ Commands:
   context [host] [--json]  Show host config and repo state summary
   fmt                      Format the repository with the flake formatter
   update                   Update flake inputs
+  hook [event]             Run or list lifecycle hooks
   host [host]              Print the detected default host
   hosts                    List known hosts
   secrets <subcommand>     Manage secrets via sops-nix
+  swap [path]              Toggle config symlinks for mutable editing
   install-hooks            Configure git to use the tracked pre-commit hook
   help [command]           Show help for rig or a command
 
@@ -197,6 +199,49 @@ Examples:
 EOF
 }
 
+usage_hook() {
+  cat <<'EOF'
+Usage: rig hook [event]
+
+Run or list lifecycle hooks registered via platform.hooks.
+
+Without arguments, lists available hook events.
+With an event name, runs all hooks for that event.
+
+Events:
+  post-deploy              Runs after rig deploy completes
+
+Hooks are declared in Nix via platform.hooks.postDeploy and
+written to ~/.local/share/rig/hooks/ at activation time.
+
+Examples:
+  rig hook
+  rig hook post-deploy
+EOF
+}
+
+usage_swap() {
+  cat <<'EOF'
+Usage: rig swap [path] [--restore-all]
+
+Toggle nix-store symlinks to mutable copies for rapid config iteration.
+Lets you edit managed config files in-place without a full rebuild.
+
+Without arguments, lists currently swapped files.
+With a path, toggles that file between symlink and mutable copy.
+
+Options:
+  -R, --restore-all      Restore all swapped files to their original symlinks
+
+rig deploy and rig build will refuse to run while files are swapped.
+
+Examples:
+  rig swap ~/.config/ghostty/config
+  rig swap
+  rig swap --restore-all
+EOF
+}
+
 usage_context() {
   cat <<'EOF'
 Usage: rig context [host] [--json]
@@ -230,7 +275,9 @@ Commands with dedicated help:
   bootstrap
   context
   deploy
+  hook
   secrets
+  swap
 
 Examples:
   rig help
@@ -257,7 +304,9 @@ fmt
 update
 host
 hosts
+hook
 secrets
+swap
 install-hooks
 help
 EOF
@@ -434,8 +483,14 @@ show_command_help() {
     deploy)
       usage_deploy
       ;;
+    hook)
+      usage_hook
+      ;;
     secrets)
       usage_secrets
+      ;;
+    swap)
+      usage_swap
       ;;
     *)
       suggestion="$(command_list | closest_match "$topic")"
@@ -903,6 +958,192 @@ do_secrets() {
   esac
 }
 
+# ---------------------------------------------------------------------------
+# Hooks — lifecycle event scripts
+# ---------------------------------------------------------------------------
+
+hook_dir() {
+  printf '%s\n' "${XDG_DATA_HOME:-$HOME/.local/share}/rig/hooks"
+}
+
+run_hook() {
+  event="$1"
+  script="$(hook_dir)/$event"
+
+  if [ ! -x "$script" ]; then
+    return 0
+  fi
+
+  "$script"
+}
+
+do_hook() {
+  case "${1:-}" in
+    -h|--help)
+      usage_hook
+      exit 0
+      ;;
+    "")
+      printf '%s\n' "Available hook events:"
+      printf '  %s\n' "post-deploy"
+      script="$(hook_dir)/post-deploy"
+      if [ -x "$script" ]; then
+        printf '\n%s\n' "post-deploy: installed"
+      else
+        printf '\n%s\n' "post-deploy: not configured"
+      fi
+      ;;
+    post-deploy)
+      script="$(hook_dir)/post-deploy"
+      if [ ! -x "$script" ]; then
+        printf '%s\n' "no post-deploy hook configured"
+        exit 0
+      fi
+      run_hook post-deploy
+      ;;
+    *)
+      die "unknown hook event: $1"
+      ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# Swap — mutable config editing
+# ---------------------------------------------------------------------------
+
+swap_state_dir() {
+  printf '%s\n' "${XDG_STATE_HOME:-$HOME/.local/state}/rig/swaps"
+}
+
+swap_manifest() {
+  printf '%s\n' "$(swap_state_dir)/manifest"
+}
+
+has_active_swaps() {
+  manifest="$(swap_manifest)"
+  [ -s "$manifest" ]
+}
+
+require_no_active_swaps() {
+  if has_active_swaps; then
+    printf '%s\n' "error: cannot $1 while files are swapped:" >&2
+    while IFS='	' read -r spath starget; do
+      printf '  %s\n' "$spath" >&2
+    done < "$(swap_manifest)"
+    printf '%s\n' "hint: run 'rig swap --restore-all' first" >&2
+    exit 1
+  fi
+}
+
+resolve_absolute() {
+  case "$1" in
+    /*)
+      printf '%s\n' "$1"
+      ;;
+    *)
+      printf '%s\n' "$PWD/$1"
+      ;;
+  esac
+}
+
+swap_in() {
+  path="$1"
+  target="$(readlink "$path")" || die "could not read symlink: $path"
+  manifest="$(swap_manifest)"
+
+  mkdir -p "$(swap_state_dir)"
+  cp -L "$path" "$path.rig-swap-tmp" || die "could not copy: $path"
+  rm "$path"
+  mv "$path.rig-swap-tmp" "$path"
+  printf '%s\t%s\n' "$path" "$target" >> "$manifest"
+  _print_success "swapped in $path (now mutable)" 0
+}
+
+swap_out() {
+  path="$1"
+  target="$2"
+  manifest="$(swap_manifest)"
+
+  if [ ! -e "$target" ]; then
+    printf '%s\n' "warning: original target no longer exists: $target" >&2
+    printf '%s\n' "hint: run 'rig deploy' after restoring to regenerate" >&2
+  fi
+
+  rm "$path" || die "could not remove mutable copy: $path"
+  ln -s "$target" "$path" || die "could not restore symlink: $path -> $target"
+
+  # Remove this entry from the manifest
+  tmp="$(mktemp)"
+  grep -v "^${path}	" "$manifest" > "$tmp" || true
+  if [ -s "$tmp" ]; then
+    mv "$tmp" "$manifest"
+  else
+    rm "$tmp" "$manifest"
+    rmdir "$(swap_state_dir)" 2>/dev/null || true
+  fi
+
+  _print_success "restored $path" 0
+}
+
+do_swap() {
+  case "${1:-}" in
+    -h|--help)
+      usage_swap
+      exit 0
+      ;;
+    -R|--restore-all)
+      manifest="$(swap_manifest)"
+      if [ ! -s "$manifest" ]; then
+        printf '%s\n' "no active swaps"
+        exit 0
+      fi
+      # Read all entries first (modifying manifest during iteration)
+      entries=""
+      while IFS='	' read -r spath starget; do
+        entries="${entries}${spath}	${starget}
+"
+      done < "$manifest"
+      printf '%s' "$entries" | while IFS='	' read -r spath starget; do
+        [ -n "$spath" ] || continue
+        swap_out "$spath" "$starget"
+      done
+      ;;
+    "")
+      manifest="$(swap_manifest)"
+      if [ ! -s "$manifest" ]; then
+        printf '%s\n' "no active swaps"
+        exit 0
+      fi
+      while IFS='	' read -r spath starget; do
+        printf '%s -> %s\n' "$spath" "$starget"
+      done < "$manifest"
+      ;;
+    -*)
+      die "unknown swap flag: $1"
+      ;;
+    *)
+      path="$(resolve_absolute "$1")"
+
+      # Check if already swapped
+      manifest="$(swap_manifest)"
+      if [ -s "$manifest" ]; then
+        existing_target="$(grep "^${path}	" "$manifest" | head -1 | cut -f2)"
+        if [ -n "$existing_target" ]; then
+          swap_out "$path" "$existing_target"
+          exit 0
+        fi
+      fi
+
+      # Must be a symlink to swap in
+      if [ ! -L "$path" ]; then
+        die "not a symlink: $path"
+      fi
+
+      swap_in "$path"
+      ;;
+  esac
+}
+
 do_install_hooks() {
   require_command git
   ensure_not_root
@@ -984,6 +1225,12 @@ run_activation() {
 
   run_phase "Activating $host" "Activated $host" \
     activate_built_host "$host" "$kind"
+
+  hook_script="$(hook_dir)/post-deploy"
+  if [ -x "$hook_script" ]; then
+    run_phase "Running post-deploy hooks" "Ran post-deploy hooks" \
+      "$hook_script"
+  fi
 
   if is_interactive; then
     activation_end="$(_now_seconds)"
@@ -1265,6 +1512,7 @@ do_build() {
 
   require_command nix
   ensure_not_root
+  require_no_active_swaps "build"
 
   cd "$repo_root"
   build_host_closure "$host" "$kind"
@@ -1279,6 +1527,7 @@ do_deploy() {
   require_command nix
   require_command sudo
   ensure_not_root
+  require_no_active_swaps "deploy"
 
   cd "$repo_root"
   run_activation "$host" "$kind" "$DEPLOY_UPDATE"
@@ -1351,6 +1600,9 @@ case "$cmd" in
   update)
     do_update
     ;;
+  hook)
+    do_hook "$@"
+    ;;
   host)
     resolve_host_arg "$@"
     ;;
@@ -1359,6 +1611,9 @@ case "$cmd" in
     ;;
   secrets)
     do_secrets "$@"
+    ;;
+  swap)
+    do_swap "$@"
     ;;
   install-hooks)
     do_install_hooks

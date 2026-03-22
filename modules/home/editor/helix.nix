@@ -13,7 +13,7 @@ in
       defaultEditor = cfg.apps.editor == "helix";
 
       settings = {
-        theme = "doomone";
+        theme = cfg.theme.schemes.helix;
         editor = {
           line-number = "relative";
           auto-format = true;

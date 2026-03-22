@@ -6,6 +6,7 @@
 }:
 let
   cfg = osConfig.platform;
+  theme = cfg.theme;
   forgotPluginPath = "file:~/.config/zellij/plugins/zellij_forgot.wasm";
   quitPluginPath = "file:~/.config/zellij/plugins/zj-quit.wasm";
   zjstatusPluginPath = "file:~/.config/zellij/plugins/zjstatus.wasm";
@@ -27,55 +28,55 @@ let
             plugin location="${zjstatusPluginPath}" {
                 format_left   "{mode} {tabs}"
                 format_center "{pipe_zjstatus_hints}"
-                format_right  "{datetime}#[bg=#cba6f7,fg=#1e1e2e,bold] {session} "
+                format_right  "{datetime}#[bg=${theme.palette.accent},fg=${theme.palette.base},bold] {session} "
                 format_space  ""
                 format_hide_on_overlength "true"
                 format_precedence "lrc"
 
-                pipe_zjstatus_hints_format "#[fg=#6c7086]{output} "
+                pipe_zjstatus_hints_format "#[fg=${theme.palette.muted}]{output} "
 
                 datetime_format "%H:%M"
                 datetime_timezone "America/Los_Angeles"
 
                 border_enabled  "true"
                 border_char     "─"
-                border_format   "#[fg=#6c7086]{char}"
+                border_format   "#[fg=${theme.palette.muted}]{char}"
                 border_position "top"
 
                 hide_frame_for_single_pane "false"
 
-                mode_locked      "#[bg=#cba6f7,fg=#1e1e2e,bold]  LOCK "
-                mode_normal      "#[bg=#f5c2e7,fg=#1e1e2e,bold]  NORMAL "
-                mode_resize      "#[bg=#f38ba8,fg=#1e1e2e,bold]  RESIZE "
-                mode_pane        "#[bg=#89b4fa,fg=#1e1e2e,bold]  PANE "
-                mode_move        "#[bg=#94e2d5,fg=#1e1e2e,bold]  MOVE "
-                mode_tab         "#[bg=#b4befe,fg=#1e1e2e,bold]  TAB "
-                mode_scroll      "#[bg=#cdd6f4,fg=#1e1e2e,bold]  SCROLL "
-                mode_search      "#[bg=#f9e2af,fg=#1e1e2e,bold]  SEARCH "
-                mode_entersearch "#[bg=#f9e2af,fg=#1e1e2e,bold]  ENTER SEARCH "
-                mode_renametab   "#[bg=#cba6f7,fg=#1e1e2e,bold]  RENAME TAB "
-                mode_renamepane  "#[bg=#cba6f7,fg=#1e1e2e,bold]  RENAME PANE "
-                mode_session     "#[bg=#f38ba8,fg=#1e1e2e,bold]  SESSION "
-                mode_tmux        "#[bg=#cdd6f4,fg=#1e1e2e,bold]  TMUX "
+                mode_locked      "#[bg=${theme.palette.accent},fg=${theme.palette.base},bold]  LOCK "
+                mode_normal      "#[bg=${theme.palette.pink},fg=${theme.palette.base},bold]  NORMAL "
+                mode_resize      "#[bg=${theme.palette.red},fg=${theme.palette.base},bold]  RESIZE "
+                mode_pane        "#[bg=${theme.palette.blue},fg=${theme.palette.base},bold]  PANE "
+                mode_move        "#[bg=${theme.palette.teal},fg=${theme.palette.base},bold]  MOVE "
+                mode_tab         "#[bg=${theme.palette.lavender},fg=${theme.palette.base},bold]  TAB "
+                mode_scroll      "#[bg=${theme.palette.text},fg=${theme.palette.base},bold]  SCROLL "
+                mode_search      "#[bg=${theme.palette.yellow},fg=${theme.palette.base},bold]  SEARCH "
+                mode_entersearch "#[bg=${theme.palette.yellow},fg=${theme.palette.base},bold]  ENTER SEARCH "
+                mode_renametab   "#[bg=${theme.palette.accent},fg=${theme.palette.base},bold]  RENAME TAB "
+                mode_renamepane  "#[bg=${theme.palette.accent},fg=${theme.palette.base},bold]  RENAME PANE "
+                mode_session     "#[bg=${theme.palette.red},fg=${theme.palette.base},bold]  SESSION "
+                mode_tmux        "#[bg=${theme.palette.text},fg=${theme.palette.base},bold]  TMUX "
 
-                mode_pane_format_center        "#[fg=#89b4fa,bold]h/j/k/l#[fg=#6c7086] Navigate  #[fg=#89b4fa,bold]n#[fg=#6c7086] New  #[fg=#89b4fa,bold]v#[fg=#6c7086] Right  #[fg=#89b4fa,bold]b#[fg=#6c7086] Below  #[fg=#89b4fa,bold]x#[fg=#6c7086] Close  #[fg=#89b4fa,bold]f#[fg=#6c7086] Full  #[fg=#89b4fa,bold]w#[fg=#6c7086] Float  #[fg=#89b4fa,bold]r#[fg=#6c7086] Rename  #[fg=#89b4fa,bold]t#[fg=#6c7086] Break"
-                mode_tab_format_center         "#[fg=#b4befe,bold]h/l#[fg=#6c7086] Prev/Next  #[fg=#b4befe,bold]n#[fg=#6c7086] New  #[fg=#b4befe,bold]x#[fg=#6c7086] Close  #[fg=#b4befe,bold]r#[fg=#6c7086] Rename  #[fg=#b4befe,bold]s#[fg=#6c7086] Sync  #[fg=#b4befe,bold]H/L#[fg=#6c7086] Move  #[fg=#b4befe,bold]1-9#[fg=#6c7086] Jump"
-                mode_resize_format_center      "#[fg=#f38ba8,bold]h/j/k/l#[fg=#6c7086] Grow  #[fg=#f38ba8,bold]H/J/K/L#[fg=#6c7086] Shrink  #[fg=#f38ba8,bold]=/−#[fg=#6c7086] All"
-                mode_move_format_center        "#[fg=#94e2d5,bold]h/j/k/l#[fg=#6c7086] Move pane"
-                mode_scroll_format_center      "#[fg=#cdd6f4,bold]j/k#[fg=#6c7086] Scroll  #[fg=#cdd6f4,bold]d/u#[fg=#6c7086] Half-page  #[fg=#cdd6f4,bold]f/b#[fg=#6c7086] Full  #[fg=#cdd6f4,bold]e#[fg=#6c7086] Edit  #[fg=#cdd6f4,bold]/#[fg=#6c7086] Search"
-                mode_search_format_center      "#[fg=#f9e2af,bold]j/k#[fg=#6c7086] Scroll  #[fg=#f9e2af,bold]n/N#[fg=#6c7086] Next/Prev  #[fg=#f9e2af,bold]c#[fg=#6c7086] Case  #[fg=#f9e2af,bold]w#[fg=#6c7086] Wrap  #[fg=#f9e2af,bold]o#[fg=#6c7086] Word"
-                mode_session_format_center     "#[fg=#f38ba8,bold]d#[fg=#6c7086] Detach  #[fg=#f38ba8,bold]w#[fg=#6c7086] Sessions  #[fg=#f38ba8,bold]c#[fg=#6c7086] Config  #[fg=#f38ba8,bold]p#[fg=#6c7086] Plugins  #[fg=#f38ba8,bold]a#[fg=#6c7086] About"
-                mode_entersearch_format_center "#[fg=#6c7086]Type to search · Enter confirm · Esc cancel"
-                mode_renametab_format_center   "#[fg=#6c7086]Type new name · Enter confirm · Esc cancel"
-                mode_renamepane_format_center  "#[fg=#6c7086]Type new name · Enter confirm · Esc cancel"
+                mode_pane_format_center        "#[fg=${theme.palette.blue},bold]h/j/k/l#[fg=${theme.palette.muted}] Navigate  #[fg=${theme.palette.blue},bold]n#[fg=${theme.palette.muted}] New  #[fg=${theme.palette.blue},bold]v#[fg=${theme.palette.muted}] Right  #[fg=${theme.palette.blue},bold]b#[fg=${theme.palette.muted}] Below  #[fg=${theme.palette.blue},bold]x#[fg=${theme.palette.muted}] Close  #[fg=${theme.palette.blue},bold]f#[fg=${theme.palette.muted}] Full  #[fg=${theme.palette.blue},bold]w#[fg=${theme.palette.muted}] Float  #[fg=${theme.palette.blue},bold]r#[fg=${theme.palette.muted}] Rename  #[fg=${theme.palette.blue},bold]t#[fg=${theme.palette.muted}] Break"
+                mode_tab_format_center         "#[fg=${theme.palette.lavender},bold]h/l#[fg=${theme.palette.muted}] Prev/Next  #[fg=${theme.palette.lavender},bold]n#[fg=${theme.palette.muted}] New  #[fg=${theme.palette.lavender},bold]x#[fg=${theme.palette.muted}] Close  #[fg=${theme.palette.lavender},bold]r#[fg=${theme.palette.muted}] Rename  #[fg=${theme.palette.lavender},bold]s#[fg=${theme.palette.muted}] Sync  #[fg=${theme.palette.lavender},bold]H/L#[fg=${theme.palette.muted}] Move  #[fg=${theme.palette.lavender},bold]1-9#[fg=${theme.palette.muted}] Jump"
+                mode_resize_format_center      "#[fg=${theme.palette.red},bold]h/j/k/l#[fg=${theme.palette.muted}] Grow  #[fg=${theme.palette.red},bold]H/J/K/L#[fg=${theme.palette.muted}] Shrink  #[fg=${theme.palette.red},bold]=/−#[fg=${theme.palette.muted}] All"
+                mode_move_format_center        "#[fg=${theme.palette.teal},bold]h/j/k/l#[fg=${theme.palette.muted}] Move pane"
+                mode_scroll_format_center      "#[fg=${theme.palette.text},bold]j/k#[fg=${theme.palette.muted}] Scroll  #[fg=${theme.palette.text},bold]d/u#[fg=${theme.palette.muted}] Half-page  #[fg=${theme.palette.text},bold]f/b#[fg=${theme.palette.muted}] Full  #[fg=${theme.palette.text},bold]e#[fg=${theme.palette.muted}] Edit  #[fg=${theme.palette.text},bold]/#[fg=${theme.palette.muted}] Search"
+                mode_search_format_center      "#[fg=${theme.palette.yellow},bold]j/k#[fg=${theme.palette.muted}] Scroll  #[fg=${theme.palette.yellow},bold]n/N#[fg=${theme.palette.muted}] Next/Prev  #[fg=${theme.palette.yellow},bold]c#[fg=${theme.palette.muted}] Case  #[fg=${theme.palette.yellow},bold]w#[fg=${theme.palette.muted}] Wrap  #[fg=${theme.palette.yellow},bold]o#[fg=${theme.palette.muted}] Word"
+                mode_session_format_center     "#[fg=${theme.palette.red},bold]d#[fg=${theme.palette.muted}] Detach  #[fg=${theme.palette.red},bold]w#[fg=${theme.palette.muted}] Sessions  #[fg=${theme.palette.red},bold]c#[fg=${theme.palette.muted}] Config  #[fg=${theme.palette.red},bold]p#[fg=${theme.palette.muted}] Plugins  #[fg=${theme.palette.red},bold]a#[fg=${theme.palette.muted}] About"
+                mode_entersearch_format_center "#[fg=${theme.palette.muted}]Type to search · Enter confirm · Esc cancel"
+                mode_renametab_format_center   "#[fg=${theme.palette.muted}]Type new name · Enter confirm · Esc cancel"
+                mode_renamepane_format_center  "#[fg=${theme.palette.muted}]Type new name · Enter confirm · Esc cancel"
 
-                tab_active              "#[bg=#cba6f7,fg=#1e1e2e,bold] {index} {name} "
-                tab_active_fullscreen   "#[bg=#cba6f7,fg=#1e1e2e,bold] {fullscreen_indicator} {index} {name} "
-                tab_active_sync         "#[bg=#cba6f7,fg=#1e1e2e,bold] {sync_indicator} {index} {name} "
+                tab_active              "#[bg=${theme.palette.accent},fg=${theme.palette.base},bold] {index} {name} "
+                tab_active_fullscreen   "#[bg=${theme.palette.accent},fg=${theme.palette.base},bold] {fullscreen_indicator} {index} {name} "
+                tab_active_sync         "#[bg=${theme.palette.accent},fg=${theme.palette.base},bold] {sync_indicator} {index} {name} "
 
-                tab_normal              "#[fg=#6c7086,bold] {index} {name} "
-                tab_normal_fullscreen   "#[fg=#6c7086,bold] {fullscreen_indicator} {index} {name} "
-                tab_normal_sync         "#[fg=#6c7086,bold] {sync_indicator} {index} {name} "
+                tab_normal              "#[fg=${theme.palette.muted},bold] {index} {name} "
+                tab_normal_fullscreen   "#[fg=${theme.palette.muted},bold] {fullscreen_indicator} {index} {name} "
+                tab_normal_sync         "#[fg=${theme.palette.muted},bold] {sync_indicator} {index} {name} "
 
                 tab_separator " "
 
@@ -83,11 +84,11 @@ let
                 tab_fullscreen_indicator "󰊓"
                 tab_floating_indicator   "⬚"
 
-                tab_rename              "#[bg=#b4befe,fg=#1e1e2e,bold] {index} {name} {floating_indicator} "
+                tab_rename              "#[bg=${theme.palette.lavender},fg=${theme.palette.base},bold] {index} {name} {floating_indicator} "
 
                 tab_display_count         "9"
-                tab_truncate_start_format "#[fg=#f9e2af]  +{count}  "
-                tab_truncate_end_format   "#[fg=#f9e2af]   +{count} "
+                tab_truncate_start_format "#[fg=${theme.palette.yellow}]  +{count}  "
+                tab_truncate_end_format   "#[fg=${theme.palette.yellow}]   +{count} "
             }
         }
     }

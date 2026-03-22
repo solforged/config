@@ -1,10 +1,12 @@
 {
   config,
   lib,
+  self,
   ...
 }:
 let
   inherit (lib) mkOption types;
+  inherit (self.lib) mkOpt;
   cfg = config.platform.apps;
 in
 {
@@ -22,19 +24,12 @@ in
         description = "Absolute home directory path.";
       };
 
-      fullName = mkOption {
-        type = types.nullOr types.str;
-        default = null;
-        example = "Alice Example";
-        description = "Human-readable account name. Leave null and override locally if preferred.";
-      };
-
-      email = mkOption {
-        type = types.nullOr types.str;
-        default = null;
-        example = "alice@example.com";
-        description = "Primary email used for git identity defaults. Leave null and override locally if preferred.";
-      };
+      fullName =
+        mkOpt (types.nullOr types.str) null
+          "Human-readable account name. Leave null and override locally if preferred.";
+      email =
+        mkOpt (types.nullOr types.str) null
+          "Primary email used for git identity defaults. Leave null and override locally if preferred.";
     };
 
     host = {
@@ -71,25 +66,17 @@ in
     };
 
     apps = {
-      shell = mkOption {
-        type = types.enum [
-          "zsh"
-          "fish"
-          "nushell"
-        ];
-        default = "zsh";
-        description = "Preferred interactive shell.";
-      };
+      shell = mkOpt (types.enum [
+        "zsh"
+        "fish"
+        "nushell"
+      ]) "zsh" "Preferred interactive shell.";
 
-      editor = mkOption {
-        type = types.enum [
-          "nvim"
-          "emacs"
-          "helix"
-        ];
-        default = "nvim";
-        description = "Preferred editor.";
-      };
+      editor = mkOpt (types.enum [
+        "nvim"
+        "emacs"
+        "helix"
+      ]) "nvim" "Preferred editor.";
 
       enabledEditors = mkOption {
         type = types.listOf (
@@ -103,98 +90,62 @@ in
         description = "Editors to configure on this host.";
       };
 
-      terminal = mkOption {
-        type = types.enum [
-          "ghostty"
-          "kitty"
-          "terminal"
-        ];
-        default = "terminal";
-        description = "Preferred GUI terminal.";
-      };
+      terminal = mkOpt (types.enum [
+        "ghostty"
+        "kitty"
+        "terminal"
+      ]) "terminal" "Preferred GUI terminal.";
 
-      browser = mkOption {
-        type = types.enum [
-          "brave"
-          "chatgpt-atlas"
-          "chrome"
-          "safari"
-          "none"
-        ];
-        default = "none";
-        description = "Preferred browser.";
-      };
+      browser = mkOpt (types.enum [
+        "brave"
+        "chatgpt-atlas"
+        "chrome"
+        "safari"
+        "none"
+      ]) "none" "Preferred browser.";
 
-      notes = mkOption {
-        type = types.enum [
-          "obsidian"
-          "none"
-        ];
-        default = "none";
-        description = "Preferred notes app.";
-      };
+      notes = mkOpt (types.enum [
+        "obsidian"
+        "none"
+      ]) "none" "Preferred notes app.";
 
-      passwordManager = mkOption {
-        type = types.enum [
-          "1password"
-          "bitwarden"
-          "proton-pass"
-          "none"
-        ];
-        default = "none";
-        description = "Preferred password manager integration.";
-      };
-
+      passwordManager = mkOpt (types.enum [
+        "1password"
+        "bitwarden"
+        "proton-pass"
+        "none"
+      ]) "none" "Preferred password manager integration.";
     };
 
     local = {
-      repoRoot = mkOption {
-        type = types.str;
-        default = "${config.platform.user.home}/dev/personal/repos/config";
-        description = "Absolute path to this config repository checkout.";
-      };
-
-      gitInclude = mkOption {
-        type = types.str;
-        default = "~/.config/git/local.inc";
-        description = "Optional git include file kept outside the repo.";
-      };
-
-      sshConfig = mkOption {
-        type = types.str;
-        default = "~/.ssh/config.local*";
-        description = "Optional SSH include glob kept outside the repo.";
-      };
-
-      zshLocal = mkOption {
-        type = types.str;
-        default = "~/.config/zsh/local.zsh";
-        description = "Optional zsh override kept outside the repo.";
-      };
+      repoRoot =
+        mkOpt types.str "${config.platform.user.home}/dev/personal/repos/config"
+          "Absolute path to this config repository checkout.";
+      gitInclude =
+        mkOpt types.str "~/.config/git/local.inc"
+          "Optional git include file kept outside the repo.";
+      sshConfig =
+        mkOpt types.str "~/.ssh/config.local*"
+          "Optional SSH include glob kept outside the repo.";
+      zshLocal = mkOpt types.str "~/.config/zsh/local.zsh" "Optional zsh override kept outside the repo.";
     };
 
     secrets = {
-      stateDir = mkOption {
-        type = types.str;
-        default = "${config.platform.user.home}/.local/state/platform/secrets";
-        description = "Absolute runtime secrets directory populated by activation.";
-      };
+      stateDir =
+        mkOpt types.str "${config.platform.user.home}/.local/state/platform/secrets"
+          "Absolute runtime secrets directory populated by activation.";
     };
 
     packages = {
-      home = mkOption {
-        type = types.listOf types.package;
-        default = [ ];
-        description = "Merged Home Manager package set from profiles.";
-      };
-
-      system = mkOption {
-        type = types.listOf types.package;
-        default = [ ];
-        description = "Merged system package set from profiles.";
-      };
+      home = mkOpt (types.listOf types.package) [ ] "Merged Home Manager package set from profiles.";
+      system = mkOpt (types.listOf types.package) [ ] "Merged system package set from profiles.";
     };
 
+    hooks = {
+      postDeploy =
+        mkOpt (types.listOf types.str) [ ]
+          "Shell script fragments to run after rig deploy completes.";
+    };
   };
 
   config.assertions = [

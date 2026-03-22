@@ -12,6 +12,7 @@ in
   imports = [
     ./core/ai/options.nix
     ./desktop/dock/options.nix
+    ./desktop/theme/options.nix
     ./media/music/options.nix
   ];
 
@@ -97,7 +98,7 @@ in
       xdg.configFile."cheat/conf.yml".text = ''
         ---
         colorize: true
-        style: monokai
+        style: ${cfg.theme.schemes.cheat}
         formatter: terminal16m
         cheatpaths:
           - name: community

@@ -16,10 +16,6 @@
     updatetime = 200;
   };
 
-  colorschemes.onedark = {
-    enable = true;
-  };
-
   plugins = {
     comment.enable = true;
     dashboard = {

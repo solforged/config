@@ -9,12 +9,12 @@ in
       package = null;
       enableZshIntegration = cfg.apps.shell == "zsh";
       settings = {
-        "font-size" = 12;
+        "font-size" = cfg.theme.fonts.mono.size;
         "font-family" = [
-          "JetBrains Mono"
+          cfg.theme.fonts.mono.family
         ];
         "macos-option-as-alt" = true;
-        theme = "dark:Doom One,light:Doom One";
+        theme = cfg.theme.schemes.ghostty;
         "scrollback-limit" = 1000000;
         keybind = [
           # Discoverability

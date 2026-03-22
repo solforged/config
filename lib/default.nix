@@ -12,6 +12,17 @@ in
 {
   inherit supportedSystems;
 
+  mkOpt =
+    type: default: description:
+    nixpkgsLib.mkOption { inherit type default description; };
+
+  mkBoolOpt =
+    default: description:
+    nixpkgsLib.mkOption {
+      type = nixpkgsLib.types.bool;
+      inherit default description;
+    };
+
   forAllSystems =
     f:
     builtins.listToAttrs (

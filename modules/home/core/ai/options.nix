@@ -1,24 +1,22 @@
-{ lib, ... }:
+{
+  lib,
+  self,
+  ...
+}:
 let
   inherit (lib) mkEnableOption mkOption types;
+  inherit (self.lib) mkOpt;
 in
 {
   options.platform.ai = {
     enable = mkEnableOption "Codex-first local AI helpers";
 
-    openclawRemoteUrl = mkOption {
-      type = types.nullOr types.str;
-      default = null;
-      example = "https://server.domain.ts.net";
-      description = "Optional remote OpenClaw URL exposed to local helper commands.";
-    };
-
-    openclawRemoteHostnameFile = mkOption {
-      type = types.nullOr types.str;
-      default = null;
-      example = "~/.local/state/platform/secrets/openclaw/gateway_hostname";
-      description = "Path to a file containing the remote OpenClaw hostname, resolved at helper runtime.";
-    };
+    openclawRemoteUrl =
+      mkOpt (types.nullOr types.str) null
+        "Optional remote OpenClaw URL exposed to local helper commands.";
+    openclawRemoteHostnameFile =
+      mkOpt (types.nullOr types.str) null
+        "Path to a file containing the remote OpenClaw hostname, resolved at helper runtime.";
 
     lumen = {
       enable = mkEnableOption "lumen AI commit message drafting";
