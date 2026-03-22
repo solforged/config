@@ -38,6 +38,11 @@ in
         owner = cfg.user.name;
         mode = "0644";
       };
+      "groq/api_key" = {
+        path = "${secretsDir}/groq/api_key";
+        owner = cfg.user.name;
+        mode = "0600";
+      };
     };
   };
 }

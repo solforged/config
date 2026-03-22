@@ -23,6 +23,21 @@ let
   '';
   lumenConfig = {
     provider = aiCfg.lumen.provider;
+    draft = {
+      commit_types = {
+        feat = "A new feature";
+        fix = "A bug fix";
+        docs = "Documentation only changes";
+        style = "Changes that do not affect code meaning";
+        refactor = "Code changes without bug fixes or features";
+        perf = "Performance improvements";
+        test = "Adding or correcting tests";
+        build = "Build system or dependency changes";
+        ci = "CI configuration changes";
+        chore = "Other changes not modifying src or test";
+        revert = "Reverts a previous commit";
+      };
+    };
   }
   // lib.optionalAttrs (aiCfg.lumen.model != null) { model = aiCfg.lumen.model; };
 in
@@ -39,6 +54,14 @@ in
     programs.zsh.shellAliases = lib.mkIf (aiCfg.claude.package != null) {
       claude = "claude-bun";
     };
+
+    programs.zsh.initContent = lib.mkIf (aiCfg.lumen.enable && aiCfg.lumen.apiKeyFile != null) (
+      lib.mkOrder 500 ''
+        if [[ -r "${aiCfg.lumen.apiKeyFile}" ]]; then
+          export GROQ_API_KEY="$(<"${aiCfg.lumen.apiKeyFile}")"
+        fi
+      ''
+    );
 
     home.sessionVariables =
       lib.optionalAttrs (aiCfg.openclawRemoteUrl != null) {

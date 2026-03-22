@@ -48,6 +48,7 @@ in
       openclaw.enable = true;
     };
 
+    ai.lumen.apiKeyFile = "${cfg.secrets.stateDir}/groq/api_key";
     ai.openclawRemoteHostnameFile = "${cfg.secrets.stateDir}/openclaw/gateway_hostname";
   };
 }

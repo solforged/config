@@ -40,6 +40,13 @@ in
         default = null;
         description = "Model override for lumen. Null uses the provider's default.";
       };
+
+      apiKeyFile = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        example = "~/.local/state/platform/secrets/groq/api_key";
+        description = "Path to a file containing the Groq API key, exported as GROQ_API_KEY at shell startup.";
+      };
     };
 
     claude.package = mkOption {
