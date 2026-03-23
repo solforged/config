@@ -313,6 +313,32 @@ in
           }
         '')
 
+        (lib.mkOrder 1350 ''
+          if [[ "$OSTYPE" == darwin* ]]; then
+            if [[ -z "$SSH_AUTH_SOCK" ]] && (( $+commands[launchctl] )); then
+              export SSH_AUTH_SOCK="$(launchctl getenv SSH_AUTH_SOCK 2>/dev/null)"
+            fi
+
+            ssh_agent_state=2
+            if [[ -n "$SSH_AUTH_SOCK" ]]; then
+              /usr/bin/ssh-add -l >/dev/null 2>&1
+              ssh_agent_state=$?
+            fi
+
+            if [[ $ssh_agent_state -eq 2 ]] && [[ -f ~/.ssh/id_ed25519 ]]; then
+              eval "$(/usr/bin/ssh-agent -s)" >/dev/null
+              (( $+commands[launchctl] )) && launchctl setenv SSH_AUTH_SOCK "$SSH_AUTH_SOCK" >/dev/null 2>&1 || true
+              ssh_agent_state=1
+            fi
+
+            if [[ $ssh_agent_state -ne 0 ]] && [[ -f ~/.ssh/id_ed25519 ]]; then
+              /usr/bin/ssh-add --apple-load-keychain ~/.ssh/id_ed25519 >/dev/null 2>&1 \
+                || /usr/bin/ssh-add --apple-use-keychain ~/.ssh/id_ed25519 >/dev/null 2>&1 \
+                || true
+            fi
+          fi
+        '')
+
         (lib.mkOrder 1400 ''
           if [[ -f "${secretLocalZsh}" ]]; then
             source "${secretLocalZsh}"

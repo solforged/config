@@ -25,4 +25,14 @@ final: prev: {
         })
       ];
   });
+
+  zsh-fzf-tab = prev.zsh-fzf-tab.overrideAttrs (old: {
+    postInstall =
+      (old.postInstall or "")
+      + prev.lib.optionalString prev.stdenv.hostPlatform.isDarwin ''
+        if [ -e "$out/share/fzf-tab/modules/Src/aloxaf/fzftab.so" ] && [ ! -e "$out/share/fzf-tab/modules/Src/aloxaf/fzftab.bundle" ]; then
+          ln -s fzftab.so "$out/share/fzf-tab/modules/Src/aloxaf/fzftab.bundle"
+        fi
+      '';
+  });
 }
