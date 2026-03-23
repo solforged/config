@@ -1,5 +1,6 @@
 {
   config,
+  inputs,
   lib,
   pkgs,
   ...
@@ -12,7 +13,10 @@ in
   options.platform.profiles.base.enable = mkEnableOption "common CLI base profile";
 
   config = lib.mkIf cfg.profiles.base.enable {
-    platform.packages.home = with pkgs; [
+    platform.packages.home = [
+      inputs.rig.packages.${cfg.host.platform}.default
+    ]
+    ++ (with pkgs; [
       bottom
       chafa
       cheat
@@ -37,6 +41,6 @@ in
       sd
       tealdeer
       xh
-    ];
+    ]);
   };
 }

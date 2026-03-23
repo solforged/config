@@ -12,7 +12,7 @@ manages `nix-darwin` + Home Manager hosts on Apple Silicon Macs.
 Primary entrypoints:
 
 - `flake.nix`: flake inputs and outputs
-- `bin/rig`: preferred wrapper for build, check, format, update, and secrets flows
+- `rig`: CLI tool (from `rig` flake input) for build, check, format, update, and secrets flows
 - `hosts/`: per-machine definitions grouped by platform
 - `profiles/`: reusable persona/capability bundles
 - `modules/`: shared, platform, and Home Manager modules
@@ -46,11 +46,11 @@ Current Darwin hosts:
 
 Prefer the wrapper commands when they exist:
 
-- format: `./bin/rig fmt`
-- validation: `./bin/rig check`
-- host build: `./bin/rig build`
-- explicit host build: `./bin/rig build atlas` or `./bin/rig build sigil`
-- list/detect hosts: `./bin/rig hosts`, `./bin/rig host`
+- format: `rig fmt`
+- validation: `rig check`
+- host build: `rig build`
+- explicit host build: `rig build atlas` or `rig build sigil`
+- list/detect hosts: `rig hosts`, `rig host`
 
 Equivalent raw commands are acceptable when needed:
 
@@ -59,13 +59,13 @@ Equivalent raw commands are acceptable when needed:
 - `nix build .#darwinConfigurations.sigil.system`
 
 Do not run activation commands such as `darwin-rebuild switch` or
-`./bin/rig switch` unless the user explicitly asks for that. Builds and checks
+`rig switch` unless the user explicitly asks for that. Builds and checks
 are the safe default.
 
 ## Validation expectations
 
-- Run `./bin/rig fmt` after editing Nix files or shell scripts.
-- Run `./bin/rig check` for broad validation when changes can affect shared
+- Run `rig fmt` after editing Nix files or shell scripts.
+- Run `rig check` for broad validation when changes can affect shared
   logic.
 - If a change is host-specific, also build the affected host explicitly.
 - If you touch secret-handling code or tracked files that may look sensitive,
@@ -76,8 +76,8 @@ are the safe default.
 - Never commit plaintext secrets.
 - Never place secret values in `*.nix` files or tracked files under `config/`.
 - Files under `secrets/` must stay encrypted as `*.age`.
-- Use `./bin/rig secrets edit`, `./bin/rig secrets import`, and
-  `./bin/rig secrets rekey` for secret changes instead of editing encrypted
+- Use `rig secrets edit`, `rig secrets import`, and
+  `rig secrets rekey` for secret changes instead of editing encrypted
   blobs by hand.
 - Decrypted runtime secret material belongs under
   `$XDG_STATE_HOME/dotfiles/secrets` and must not be checked in.

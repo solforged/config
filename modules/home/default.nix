@@ -112,7 +112,6 @@ in
       '';
 
       home.file.".hushlogin".text = "";
-      home.file.".local/bin/rig".source = ../../bin/rig;
       home.file.".config/nix-darwin/README.md".text = ''
         Local-only overrides belong outside the flake.
         Common examples:

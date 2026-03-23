@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A Nix flake that declaratively configures macOS (nix-darwin) and Linux (NixOS) machines using Home Manager. The CLI tool `rig` (in `bin/rig`) is the primary interface for building and deploying configurations.
+A Nix flake that declaratively configures macOS (nix-darwin) and Linux (NixOS) machines using Home Manager. The CLI tool `rig` (a Rust binary from the `rig` flake input) is the primary interface for building and deploying configurations.
 
 ## Common commands
 

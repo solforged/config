@@ -598,6 +598,26 @@
         "type": "github"
       }
     },
+    "rig": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1774226462,
+        "narHash": "sha256-fttvWgAwMjkYzeUkfmPzWFzli9V39ctgHMzesnsfXTo=",
+        "owner": "solforged",
+        "repo": "rig",
+        "rev": "a32273e311d87c82474d2ed4ff92e572c01e2c67",
+        "type": "github"
+      },
+      "original": {
+        "owner": "solforged",
+        "repo": "rig",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "claude-code-nix": "claude-code-nix",
@@ -608,6 +628,7 @@
         "nix-openclaw": "nix-openclaw",
         "nixpkgs": "nixpkgs_5",
         "nixvim": "nixvim",
+        "rig": "rig",
         "sops-nix": "sops-nix",
         "worktrunk": "worktrunk"
       }

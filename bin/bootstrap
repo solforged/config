@@ -88,4 +88,4 @@ clone_config_repo
 
 repo_dir="${CONFIG_REPO_DIR:-${RIG_REPO_ROOT:-${PLATFORM_DIR:-$HOME/dev/personal/repos/config}}}"
 info "running rig bootstrap $host"
-exec "$repo_dir/bin/rig" bootstrap "$host"
+exec nix --log-format raw run github:solforged/rig -- bootstrap --repo "$repo_dir" "$host"
