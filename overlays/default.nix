@@ -1,5 +1,6 @@
 final: prev: {
   musicctl = final.callPackage ../modules/home/media/music/openclaw-plugin/package.nix { };
+  notesctl = final.callPackage ../modules/home/notes/package.nix { };
 
   emacs = prev.emacs.overrideAttrs (old: {
     patches =

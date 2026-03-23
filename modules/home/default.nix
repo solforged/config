@@ -14,6 +14,7 @@ in
     ./desktop/dock/options.nix
     ./desktop/theme/options.nix
     ./media/music/options.nix
+    ./notes/options.nix
   ];
 
   home-manager.useGlobalPkgs = true;
@@ -38,6 +39,7 @@ in
         ./editor
         ./desktop
         ./media
+        ./notes
       ];
 
       home.username = cfg.user.name;

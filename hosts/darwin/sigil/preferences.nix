@@ -48,6 +48,16 @@ in
       openclaw.enable = true;
     };
 
+    notes = {
+      enable = true;
+      vaultPath = "${cfg.user.home}/dev/personal/vault";
+      obsidian.enable = true;
+      zk.enable = true;
+      taskwarrior.enable = true;
+      openclaw.enable = true;
+      privateStyleGuidePath = "${cfg.user.home}/.config/notes/style-guide.local.md";
+    };
+
     ai.lumen.apiKeyFile = "${cfg.secrets.stateDir}/groq/api_key";
     ai.openclawRemoteHostnameFile = "${cfg.secrets.stateDir}/openclaw/gateway_hostname";
   };

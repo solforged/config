@@ -1,0 +1,31 @@
+{
+  "title": "OpenClaw and Obsidian integration plan",
+  "summary": "Defined a backend-neutral conversation capture flow with notesctl enforcing markdown structure and optional Taskwarrior task mirroring.",
+  "people": [
+    "admin"
+  ],
+  "tags": [
+    "architecture",
+    "notes"
+  ],
+  "conversation_id": "example-conversation-id",
+  "source_url": "",
+  "decisions": [
+    "Use notesctl as the only writer into the notebook for generated conversation notes.",
+    "Keep Taskwarrior as the task source of truth when task sync is enabled."
+  ],
+  "followups": [
+    "Wire notes.enable on sigil.",
+    "Refine task backlink synchronization."
+  ],
+  "tasks": [
+    {
+      "description": "Implement the initial notes module",
+      "project": "notes",
+      "tags": [
+        "conversation",
+        "setup"
+      ]
+    }
+  ]
+}
