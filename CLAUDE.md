@@ -89,20 +89,16 @@ All Nix files use `nixfmt-rfc-style` (the flake's formatter). Run `rig fmt` befo
 
 ## Commit style
 
-Commits use a `domain: lowercase description` format where the domain is the feature area being changed — not conventional-commits types. Examples from history:
+Commits use a conventional-commits subject line, usually `type(scope): lowercase description`. Keep the description concise, one line, and avoid bullet lists in the commit body unless the workflow explicitly asks for them.
 
 ```
-gitignore: exclude worktree tracking directories
-rig: add host context command and tooling hooks
-python: wire up LSP, formatting, and dev tooling
-terminal: add AI commit drafting, git workflow tools, and shell history
-bootstrap: harden first-time deployment on new hosts
-secrets: migrate secrets to sops-nix
-editor: add emacs, helix, and modular nixvim configs
-darwin: add hyperion and refine host defaults
+feat(dev): add Rust and Node tooling, LSPs, and PATH wiring
+docs(workflow): add devcontainer template, merge guidance, and zsh keybindings
+refactor(rig): replace shell script with Rust binary from rig flake input
+build(flake): add claude, sops, and work session inputs
 ```
 
-Use an established domain from the repo history when one fits. Keep the description concise — one line, no bullet lists.
+Use an established `type` and `scope` from recent history when one fits.
 
 ## Git workflow
 
