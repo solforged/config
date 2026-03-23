@@ -113,6 +113,30 @@ let
       };
     };
 
+    tools.alsoAllow = [
+      "lobster"
+      "llm-task"
+    ];
+
+    plugins.entries = {
+      diffs = {
+        enabled = true;
+      };
+      lobster = {
+        enabled = true;
+      };
+      llm-task = {
+        enabled = true;
+        config = {
+          defaultProvider = "openai-codex";
+          defaultModel = "gpt-5.4";
+          allowedModels = [ "openai-codex/gpt-5.4" ];
+          maxTokens = 800;
+          timeoutMs = 30000;
+        };
+      };
+    };
+
     # Keep chat on Codex OAuth, but run semantic memory embeddings locally.
     agents.defaults.memorySearch = {
       provider = "local";

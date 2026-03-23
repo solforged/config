@@ -17,6 +17,14 @@ in
     platform.ai.enable = true;
     platform.ai.lumen.enable = true;
     platform.ai.lumen.package = inputs.lumen.packages.${cfg.host.platform}.default;
+    platform.ai.codex.settings = {
+      model = "gpt-5.4";
+      model_reasoning_effort = "high";
+      plan_mode_reasoning_effort = "high";
+      approval_policy = "on-request";
+      sandbox_mode = "workspace-write";
+      approvals_reviewer = "user";
+    };
 
     platform.ai.claude.settings = {
       extraKnownMarketplaces = {

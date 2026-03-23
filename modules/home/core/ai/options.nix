@@ -64,5 +64,11 @@ in
       default = { };
       description = "Content for ~/.claude/settings.json — global Claude Code settings.";
     };
+
+    codex.settings = mkOption {
+      type = types.attrsOf types.anything;
+      default = { };
+      description = "Content for $CODEX_HOME/config.toml — merged with runtime Codex state such as trusted projects.";
+    };
   };
 }

@@ -96,6 +96,116 @@ in
       ''
     );
 
+    home.activation.codexSettings = lib.mkIf (aiCfg.codex.settings != { }) (
+      let
+        nixSettings = (pkgs.formats.toml { }).generate "codex-settings-nix.toml" aiCfg.codex.settings;
+        python = lib.getExe pkgs.python3;
+      in
+      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        config_path="${config.xdg.dataHome}/codex/config.toml"
+        nix_settings="${nixSettings}"
+
+        /bin/mkdir -p "${config.xdg.dataHome}/codex"
+
+        "${python}" - "$config_path" "$nix_settings" <<'PY'
+        import pathlib
+        import sys
+        import tomllib
+
+
+        def merge_values(base, override):
+            if isinstance(base, dict) and isinstance(override, dict):
+                merged = dict(base)
+                for key, value in override.items():
+                    if key in merged:
+                        merged[key] = merge_values(merged[key], value)
+                    else:
+                        merged[key] = value
+                return merged
+            return override
+
+
+        def format_string(value: str) -> str:
+            escaped = (
+                value.replace("\\", "\\\\")
+                .replace('"', '\\"')
+                .replace("\b", "\\b")
+                .replace("\f", "\\f")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t")
+            )
+            return f'"{escaped}"'
+
+
+        def format_value(value):
+            if isinstance(value, bool):
+                return "true" if value else "false"
+            if isinstance(value, int):
+                return str(value)
+            if isinstance(value, float):
+                return repr(value)
+            if isinstance(value, str):
+                return format_string(value)
+            if isinstance(value, list):
+                return "[" + ", ".join(format_value(item) for item in value) + "]"
+            raise TypeError(f"Unsupported TOML value: {value!r}")
+
+
+        def sort_key(key):
+            value = str(key)
+            return (0, value) if value == "projects" else (1, value)
+
+
+        def write_table(lines, path, table):
+            scalar_keys = []
+            nested_keys = []
+            for key, value in table.items():
+                if isinstance(value, dict):
+                    nested_keys.append(key)
+                else:
+                    scalar_keys.append(key)
+
+            if path:
+                rendered_path = ".".join(format_string(part) for part in path)
+                lines.append(f"[{rendered_path}]")
+
+            for key in sorted(scalar_keys, key=sort_key):
+                lines.append(f"{key} = {format_value(table[key])}")
+
+            if path and nested_keys:
+                lines.append("")
+
+            first_nested = True
+            for key in sorted(nested_keys, key=sort_key):
+                if not first_nested:
+                    lines.append("")
+                write_table(lines, path + [key], table[key])
+                first_nested = False
+
+
+        config_path = pathlib.Path(sys.argv[1])
+        nix_settings_path = pathlib.Path(sys.argv[2])
+
+        desired = tomllib.loads(nix_settings_path.read_text(encoding="utf-8"))
+
+        if config_path.exists():
+            current = tomllib.loads(config_path.read_text(encoding="utf-8"))
+        else:
+            current = {}
+
+        merged = merge_values(current, desired)
+
+        lines = []
+        write_table(lines, [], merged)
+        rendered = "\n".join(lines).rstrip() + "\n"
+        config_path.write_text(rendered, encoding="utf-8")
+        PY
+
+        /bin/chmod 644 "$config_path"
+      ''
+    );
+
     home.file.".local/bin/codex-here" = {
       executable = true;
       text = ''
